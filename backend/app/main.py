@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 import os
-from uuid import uuid4
+from uuid import UUID, uuid4
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from .bank import ALICE_ID
 from .campaign import run_campaign
 from .contracts import CampaignRequest
+from .evidence import EventPage, EvidenceError, UnknownRunError, read_events
 from .scenarios import SCENARIOS
 from .settings import load_external_env_file
 from .store import get_events, get_report, save_report
@@ -51,6 +52,20 @@ def resolve_target_configuration(config: TargetConfig):
         return resolve_target(config, context=context).manifest()
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
+
+
+@app.get("/api/v2/runs/{run_id}/events", response_model=EventPage)
+def observed_run_events(
+    run_id: UUID,
+    after_sequence: int = Query(default=0, ge=0),
+    limit: int = Query(default=200, ge=1, le=1000),
+):
+    try:
+        return read_events(run_id, after_sequence=after_sequence, limit=limit)
+    except UnknownRunError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except EvidenceError:
+        raise HTTPException(503, "Evidence is unavailable or incomplete") from None
 
 
 @app.get("/api/scenarios")

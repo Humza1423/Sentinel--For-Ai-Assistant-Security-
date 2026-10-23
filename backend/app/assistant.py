@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import json
 import os
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
 
 from langchain_core.tools import BaseTool, StructuredTool
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from .bank import ALICE_ID, BankRepository
+from .evidence import EvidenceError, EvidenceRecorder, child_scope, emit
 from .settings import load_external_env_file
 
 
@@ -31,6 +33,58 @@ class StrictBankTool(StructuredTool):
     LangChain's empty-schema fast path otherwise silently discards extra keys.
     This shared conversion hook covers run/invoke and their async variants.
     """
+
+    evidence: EvidenceRecorder | None = Field(default=None, exclude=True, repr=False)
+
+    @contextmanager
+    def _observe(self, tool_input):
+        if self.evidence is None:
+            yield
+            return
+        requested = self.evidence.append(
+            "tool.requested",
+            "tool",
+            {"tool_name": self.name, "requested_arguments": tool_input},
+            provenance={"requested_arguments": "external_untrusted"},
+        )
+        with self.evidence.bind(parent_event_id=requested.event_id):
+            try:
+                self.get_input_schema().model_validate(tool_input)
+            except ValidationError:
+                emit(
+                    "tool.denied",
+                    "tool",
+                    {
+                        "tool_name": self.name,
+                        "stage": "argument_validation",
+                        "reason_code": "invalid_tool_arguments",
+                    },
+                )
+                raise
+            emit("arguments.validated", "tool", {"tool_name": self.name})
+            try:
+                yield
+            except EvidenceError:
+                # A persistence failure is not a completed operation. Do not retry
+                # recursively through the same broken recorder.
+                raise
+            except Exception as exc:
+                emit(
+                    "tool.failed",
+                    "tool",
+                    {"tool_name": self.name, "error_type": type(exc).__name__},
+                )
+                raise
+            else:
+                emit("tool.completed", "tool", {"tool_name": self.name})
+
+    def run(self, tool_input, *args, **kwargs):
+        with self._observe(tool_input):
+            return super().run(tool_input, *args, **kwargs)
+
+    async def arun(self, tool_input, *args, **kwargs):
+        with self._observe(tool_input):
+            return await super().arun(tool_input, *args, **kwargs)
 
     def _to_args_and_kwargs(
         self, tool_input: str | dict[str, Any], tool_call_id: str | None
@@ -53,6 +107,7 @@ def make_bank_tool_profile(
     repository: BankRepository | None = None,
     authenticated_customer_id: str = ALICE_ID,
     tool_events: list[dict[str, Any]] | None = None,
+    evidence: EvidenceRecorder | None = None,
 ) -> BankToolProfile:
     """Create narrow LangChain tools with explicit trusted-session binding.
 
@@ -67,11 +122,47 @@ def make_bank_tool_profile(
 
     events = tool_events if tool_events is not None else []
 
+    @contextmanager
+    def authorized_access(requested_customer_id: str | None):
+        decision = emit(
+            "authorization.decided",
+            "tool",
+            {
+                "decision": "allowed",
+                "reason_code": "session_bound_tool"
+                if defended
+                else "deliberate_vulnerable_lab_policy",
+                "authenticated_customer_id": authenticated_customer_id,
+                "requested_customer_id": requested_customer_id,
+            },
+            provenance={
+                "authenticated_customer_id": "system_trusted",
+                "requested_customer_id": "external_untrusted",
+            },
+        )
+        with child_scope(decision):
+            effective = emit(
+                "tool.effective_arguments",
+                "tool",
+                {
+                    "effective_customer_id": authenticated_customer_id
+                    if defended
+                    else requested_customer_id,
+                    "identity_source": "trusted_session" if defended else "model_argument",
+                },
+                provenance={
+                    "effective_customer_id": "system_trusted" if defended else "external_untrusted"
+                },
+            )
+            with child_scope(effective):
+                yield
+
     if defended:
 
         def get_my_latest_transaction() -> str:
             """Read the latest transaction for the authenticated customer only."""
-            transaction = get_repository().latest_for(authenticated_customer_id)
+            with authorized_access(None):
+                transaction = get_repository().latest_for(authenticated_customer_id)
             events.append(
                 {
                     "tool": "get_my_latest_transaction",
@@ -90,16 +181,19 @@ def make_bank_tool_profile(
             )
 
         scoped_tool = StrictBankTool.from_function(
-            get_my_latest_transaction, args_schema=SessionTransactionArguments
+            get_my_latest_transaction,
+            args_schema=SessionTransactionArguments,
+            evidence=evidence,
         )
         return BankToolProfile(tools=(scoped_tool,), session_bound=True)
 
     def lookup_customer_transaction(customer_id: str) -> str:
         """Look up a customer's latest transaction. (Intentionally vulnerable lab tool.)"""
         try:
-            transaction = get_repository().get_for(
-                customer_id, authenticated_customer_id, vulnerable=True
-            )
+            with authorized_access(customer_id):
+                transaction = get_repository().get_for(
+                    customer_id, authenticated_customer_id, vulnerable=True
+                )
         except LookupError:
             events.append(
                 {
@@ -130,7 +224,9 @@ def make_bank_tool_profile(
         )
 
     lookup_tool = StrictBankTool.from_function(
-        lookup_customer_transaction, args_schema=CustomerTransactionArguments
+        lookup_customer_transaction,
+        args_schema=CustomerTransactionArguments,
+        evidence=evidence,
     )
     return BankToolProfile(tools=(lookup_tool,), session_bound=False)
 
@@ -141,6 +237,7 @@ def make_bank_tools(
     repository: BankRepository | None = None,
     authenticated_customer_id: str = ALICE_ID,
     tool_events: list[dict[str, Any]] | None = None,
+    evidence: EvidenceRecorder | None = None,
 ) -> list[BaseTool]:
     """Compatibility entry point for the existing agent adapter and tests."""
     return list(
@@ -149,6 +246,7 @@ def make_bank_tools(
             repository=repository,
             authenticated_customer_id=authenticated_customer_id,
             tool_events=tool_events,
+            evidence=evidence,
         ).tools
     )
 

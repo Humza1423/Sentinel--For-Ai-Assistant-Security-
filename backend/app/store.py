@@ -14,6 +14,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     create_engine,
     event,
     select,
@@ -52,6 +53,27 @@ class BankTransactionRow(Base):
     date: Mapped[str] = mapped_column(String(10), nullable=False)
     memo: Mapped[str] = mapped_column(Text, nullable=False)
     memo_provenance: Mapped[str] = mapped_column(String(32), nullable=False)
+
+
+class ObservedRunRow(Base):
+    __tablename__ = "observed_runs"
+    run_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    attempt_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    origin: Mapped[str] = mapped_column(String(24), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_sequence: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+
+class ObservedEventRow(Base):
+    __tablename__ = "observed_events"
+    __table_args__ = (UniqueConstraint("run_id", "sequence", name="uq_observed_run_sequence"),)
+    event_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    run_id: Mapped[str] = mapped_column(ForeignKey("observed_runs.run_id"), nullable=False)
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    parent_event_id: Mapped[str | None] = mapped_column(
+        ForeignKey("observed_events.event_id"), nullable=True
+    )
+    event_json: Mapped[str] = mapped_column(Text, nullable=False)
 
 
 _default_db = Path(__file__).resolve().parents[1] / "workbench.db"

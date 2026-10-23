@@ -1,18 +1,17 @@
 # Sentinel implementation roadmap
 
-This is the current delivery record for the approved shared-runtime plan. The
-root `IMPLEMENTATION_PLAN.md` is the original deterministic-MVP design and is
-historical; its greenfield and future-tense statements do not describe current
-implementation completeness.
+This is the status tracker for the [authoritative implementation plan](../IMPLEMENTATION_PLAN.md).
+The [original deterministic MVP plan](archive/DETERMINISTIC_MVP_PLAN.md) is historical.
+Ticket numbers are identifiers, not strict execution order. GitHub history keeps the same IDs.
 
-The target is one banking assistant shared by chat, attacks, replay, direct
-control tests, and benign evaluation. Build the cross-customer vertical slice
-first, then reuse it for phishing. Every ticket has its own tests and review.
+The product combines shared banking chat, attacks, evidence, investigation, a
+Defense Agent's proposal, user-triggered isolated code repair, and verified replay.
+Each approved ticket has its own tests, learning review, and PR to protected main.
 
 | Ticket | Layer and outcome | Dependencies | Status |
 | --- | --- | --- | --- |
 | T01 | Resolved target contracts and actual-tool manifest | None | Complete; 47 focused tests |
-| T02 | Runtime evidence recorder and versioned persistence | T01 | Next |
+| T02 | Runtime evidence recorder and versioned persistence | T01 | Implemented; awaiting review |
 | T03 | Scoped banking queries and isolated snapshots | T01–T02 | Planned |
 | T04 | Executable tool profiles and policy gateway | T03 | Planned |
 | T05 | Shared assistant subgraph with injectable fake model | T04 | Planned |
@@ -22,23 +21,49 @@ first, then reuse it for phishing. Every ticket has its own tests and review.
 | T09 | Live Responses adapter and explicit smoke check | T05, T08 | Planned |
 | T10 | Cross-customer scorer driven by observed events | T02, T05 | Planned |
 | T11 | Manifest-based surface analysis and bounded attacker | T01, T08–T10 | Planned |
-| T12 | Isolated paired runs and executable defense | T05, T10–T11 | Planned |
-| T13 | Direct control probes and actual benign-agent queries | T12 | Planned |
+| T12 | Clean paired execution against a candidate revision | T11, T13, T22 | Planned |
+| T13 | Direct control probes and actual benign-agent queries | T03, T05, T10 | Planned |
 | T14 | Assessment lifecycle, cancellation, persisted SSE | T12–T13 | Planned |
-| T15 | Visual proof workspace and versioned report | T07, T10, T13–T14 | Planned |
-| T16 | Repeated trials, regression export, recruiter demo | T15 | Planned |
+| T15 | Investigation, diff and evidence proof workspace | T07, T14, T21–T22, T25 | Planned |
+| T16 | Repeated trials, regression export, guided demo | T15, T26 | Planned |
 | T17 | Gateway-only versus session-bound comparison | T16 | Planned |
 | T18 | Action provenance and enforceable exact-host URL policy | T05, T08 | Planned |
 | T19 | Tailored phishing attacks and observed scoring | T11–T13, T18 | Planned |
 | T20 | Phishing proof UI and both-family regression suite | T16, T19 | Planned |
+| T21 | Investigator Agent and evidence-linked root cause | T03, T10–T11 | Planned |
+| T22 | Defense Agent and structured RemediationPlan | T08, T21 | Planned |
+| T23 | Isolated Git workspace and restricted execution | T14, T22, supported sandbox | Planned |
+| T24 | Coding Agent and validated patch application | T08, T23 | Planned |
+| T25 | Candidate security, benign and replay verification | T12–T13, T24 | Planned |
+| T26 | Accept/reject/export and explicit PR actions | T15, T25 | Planned |
 
-## Next ticket: T02
+## Product phases
+
+1. **Trustworthy foundation:** T01–T04.
+2. **Working banking chatbot:** T05–T09.
+3. **Attack and detection:** T10–T11.
+4. **Investigation and autonomous repair:** T21–T26.
+5. **Verification and polished product:** T12–T16.
+6. **Phishing expansion:** T17–T20.
+
+Phases group capabilities, not chronological work. Repair and verification interleave.
+
+## Recommended execution order
+
+```text
+T01 → T02 → T03 → T04 → T05 → T06 → T07 → T08 → T09 → T10 → T11
+→ T13 → T21 → T22 → T12 → T14 → T23 → T24 → T25 → T15 → T26 → T16
+→ T17 → T18 → T19 → T20
+```
+
+## T02 evidence and review
 
 GitHub tracking: [T02 — runtime evidence recorder](https://github.com/Humza1423/sentinel-agent-security-workbench/issues/1).
 
-Replace hand-assembled event stories with a reusable recorder alongside legacy
-campaigns. Capture events when operations happen, with unique IDs, run-local
-sequence numbers, UTC times, correlation IDs, sanitized payloads, and digests.
+T02 adds observed tables alongside legacy stories, actual tool/repository hooks,
+and a read-only paginated API. See [the T02 learning note](T02_EVIDENCE.md) and
+[ADR 0004](adr/0004-observed-evidence-recorder.md). It implements no agents, chat,
+patch execution, or generated repair UI. The next ticket after review is T03.
 
 Acceptance gates:
 
@@ -49,6 +74,12 @@ Acceptance gates:
 - An Alembic migration preserves existing campaign reports.
 - Focused tests cover successful, denied, failed, and partially completed traces.
 - Default tests make no provider calls.
+
+## Next ticket after T02 review: T03
+
+Expand scoped banking queries, integer-cent fixtures, isolated snapshots and memo
+overlays. Follow the complete ticket gates in the authoritative plan; do not start
+until the current implementation has been reviewed with the user.
 
 Before T05, compare an explicit assistant graph with LangChain `create_agent`
 using a fake-model tool trace and record the evidence in an ADR. Before T09,
