@@ -1,8 +1,15 @@
 # Sentinel — Banking Agent Security Workbench
 
+[![CI](https://github.com/Humza1423/sentinel-agent-security-workbench/actions/workflows/ci.yml/badge.svg)](https://github.com/Humza1423/sentinel-agent-security-workbench/actions/workflows/ci.yml)
+
 A local security lab that makes an agent vulnerability observable: replay an indirect prompt injection against a synthetic banking assistant, inspect the tool/evidence path, apply a registered control, replay the same case, and check that ordinary tasks still work.
 
 > **Scope:** Synthetic data and deterministic fixtures only. Scripted mode demonstrates that the harness, scorer, and controls work; it does not claim that an LLM was successfully attacked or that prompt injection can be universally prevented. An opt-in LangChain model-backed agent adapter is included, but live campaigns are not connected to the dashboard yet.
+
+**Current delivery:** T01 is complete. The next ticket is the runtime evidence recorder.
+See the [roadmap](docs/ROADMAP.md), [contribution workflow](CONTRIBUTING.md), and
+[changelog](CHANGELOG.md). Ticket branches land on `main` through pull requests
+after backend and frontend CI passes.
 
 ## What it demonstrates
 
@@ -14,7 +21,7 @@ A local security lab that makes an agent vulnerability observable: replay an ind
 
 ## Run locally
 
-Requirements: Python 3.12+, `uv`, and Node.js 20+.
+Requirements: Python 3.12+, `uv`, and Node.js 22.
 
 ```bash
 cd backend
@@ -27,11 +34,15 @@ In another terminal:
 
 ```bash
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 
-Open http://localhost:5173. Run backend tests with `cd backend && uv run pytest`; check the UI with `cd frontend && npm run build && npm test`.
+Open http://localhost:5173. Run backend tests with `cd backend && uv run --locked pytest -q`;
+check the UI with `cd frontend && npm run build && npm test`. Backend tests apply
+Alembic migrations to a temporary database and block external provider HTTP requests.
+They do not read or modify your local bank database. Full quality commands are in
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 No API key is required for the deterministic local experience. Do not commit API keys or `.env*` files. Campaign summaries and ordered evidence are persisted in local SQLite. To load a key from a private file without copying it into this repository, set `OPENAI_ENV_FILE` to that file's path when starting the backend; it must have mode `0600`. For example, prefix the backend command with `OPENAI_ENV_FILE="/path/to/private/key-file.env"`. The optional live-agent smoke test is `cd backend && uv run python scripts/live_agent_smoke.py` with `OPENAI_MODEL` optionally set. It makes a provider request and may incur API charges. The dashboard remains scripted-only; deterministic fixture campaigns never silently call an external model.
 

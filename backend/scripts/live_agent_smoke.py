@@ -4,7 +4,6 @@ import os
 
 from app.assistant import build_banking_agent
 
-
 if not os.getenv("OPENAI_API_KEY"):
     raise SystemExit("OPENAI_API_KEY is not set in this process; no request was sent.")
 

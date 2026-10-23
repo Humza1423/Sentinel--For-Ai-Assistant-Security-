@@ -1,0 +1,34 @@
+name: Implementation ticket
+description: One independently reviewable Sentinel ticket
+title: 'Txx: '
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome and reason
+      description: What changes for the engineer, and which scripted behavior or assumption is replaced?
+    validations:
+      required: true
+  - type: input
+    id: dependencies
+    attributes:
+      label: Dependencies
+      placeholder: 'T01; #1'
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Observable behavior and focused positive/negative tests.
+      placeholder: '- [ ] ...'
+    validations:
+      required: true
+  - type: textarea
+    id: learning
+    attributes:
+      label: Learning and evidence
+      description: Inputs/outputs, model authority versus trusted code, and documentation to update.
+  - type: textarea
+    id: limits
+    attributes:
+      label: Limits
+      description: What is explicitly deferred? Live calls remain opt-in and budgeted.
