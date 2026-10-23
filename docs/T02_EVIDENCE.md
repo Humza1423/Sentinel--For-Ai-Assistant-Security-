@@ -105,7 +105,7 @@ The default test harness always migrates a temporary store and blocks provider
 HTTP transports. The recorder's optional injection keeps T01 inspection free of
 bank access and preserves old callers.
 
-T02 validation: 109 backend tests passed, including all earlier regressions; Ruff
+T02 validation: 112 backend tests passed, including all earlier regressions; Ruff
 lint/format passed; the frontend test and TypeScript/Vite build passed. The actual
 tool-only demo produced eight success-path events and two malformed-call events.
 No provider requests were made. Local migration preserved 25 campaign reports and
@@ -123,6 +123,10 @@ never manufacture a success. An administrator can alter the database despite
 normal append-only protections. Digests are consistency checks, not proof of
 absolute integrity. Unknown sensitive text still needs appropriate configured
 redaction and careful payload selection.
+
+Unrecordable oversized/non-JSON tool input retains only request/rejection metadata.
+The unsafe payload is omitted, and the repository is never called. This cannot be
+treated as a fully captured replayable case.
 
 ## Interview explanation
 

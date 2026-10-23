@@ -41,12 +41,31 @@ class StrictBankTool(StructuredTool):
         if self.evidence is None:
             yield
             return
-        requested = self.evidence.append(
-            "tool.requested",
-            "tool",
-            {"tool_name": self.name, "requested_arguments": tool_input},
-            provenance={"requested_arguments": "external_untrusted"},
-        )
+        try:
+            requested = self.evidence.append(
+                "tool.requested",
+                "tool",
+                {"tool_name": self.name, "requested_arguments": tool_input},
+                provenance={"requested_arguments": "external_untrusted"},
+            )
+        except (ValueError, TypeError):
+            # Retain rejection metadata instead of unsafe/non-JSON input.
+            requested = self.evidence.append(
+                "tool.requested",
+                "tool",
+                {"tool_name": self.name, "input_capture_status": "rejected_payload"},
+            )
+            self.evidence.append(
+                "tool.denied",
+                "tool",
+                {
+                    "tool_name": self.name,
+                    "stage": "input_capture",
+                    "reason_code": "invalid_evidence_payload",
+                },
+                parent_event_id=requested.event_id,
+            )
+            raise
         with self.evidence.bind(parent_event_id=requested.event_id):
             try:
                 self.get_input_schema().model_validate(tool_input)

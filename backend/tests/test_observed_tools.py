@@ -92,6 +92,25 @@ def test_repository_denial_records_actual_decision_without_read(monkeypatch):
     assert events[0].payload["authenticated_customer_id"] == ALICE_ID
 
 
+@pytest.mark.parametrize("value", [float("nan"), b"non-json", "x" * 65537])
+def test_unrecordable_arguments_still_record_an_honest_denial(value, monkeypatch):
+    recorder = EvidenceRecorder.start()
+    repository = BankRepository()
+
+    def forbidden_read(*args, **kwargs):
+        pytest.fail("Unrecordable arguments must not invoke the repository")
+
+    monkeypatch.setattr(repository, "latest_for", forbidden_read)
+    tool = make_bank_tools(defended=True, repository=repository, evidence=recorder)[0]
+    with pytest.raises((ValueError, TypeError)):
+        tool.invoke({"customer_id": value})
+    events = read_events(recorder.run_id).events
+    assert [event.name for event in events] == ["tool.requested", "tool.denied"]
+    assert events[0].payload["input_capture_status"] == "rejected_payload"
+    assert "requested_arguments" not in events[0].payload
+    assert events[1].payload["stage"] == "input_capture"
+
+
 def test_lab_read_is_real_but_not_mislabeled_as_model_context_delivery():
     recorder = EvidenceRecorder.start()
     tool = make_bank_tools(defended=False, evidence=recorder)[0]
