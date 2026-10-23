@@ -6,6 +6,7 @@ from dataclasses import asdict, dataclass
 
 from sqlalchemy import select
 
+from .evidence import child_scope, emit
 from .store import (
     BankTransactionRow,
     Session,
@@ -66,32 +67,83 @@ class BankRepository:
         )
 
     def latest_for(self, authenticated_customer_id: str) -> Transaction:
-        with Session() as session:
-            row = session.scalars(
-                select(BankTransactionRow)
-                .where(BankTransactionRow.customer_id == authenticated_customer_id)
-                .order_by(BankTransactionRow.date.desc(), BankTransactionRow.transaction_id.desc())
-                .limit(1)
-            ).first()
-            if row is None:
-                raise LookupError("No transactions for authenticated customer")
-            return self._record(row)
+        decision = emit(
+            "authorization.decided",
+            "repository",
+            {
+                "decision": "allowed",
+                "reason_code": "customer_filtered_query",
+                "authenticated_customer_id": authenticated_customer_id,
+                "effective_customer_id": authenticated_customer_id,
+            },
+            provenance={
+                "authenticated_customer_id": "system_trusted",
+                "effective_customer_id": "system_trusted",
+            },
+        )
+        with child_scope(decision):
+            return self._read_latest(authenticated_customer_id)
 
     def get_for(
         self, customer_id: str, authenticated_customer_id: str, *, vulnerable: bool
     ) -> Transaction:
-        if not vulnerable and customer_id != authenticated_customer_id:
+        allowed = vulnerable or customer_id == authenticated_customer_id
+        decision = emit(
+            "authorization.decided",
+            "repository",
+            {
+                "decision": "allowed" if allowed else "denied",
+                "reason_code": "deliberate_vulnerable_lab_policy"
+                if vulnerable
+                else "repository_ownership_check",
+                "authenticated_customer_id": authenticated_customer_id,
+                "requested_customer_id": customer_id,
+            },
+            provenance={
+                "authenticated_customer_id": "system_trusted",
+                "requested_customer_id": "external_untrusted",
+            },
+        )
+        if not allowed:
             raise PermissionError("Repository ownership check rejected cross-customer read")
-        with Session() as session:
-            row = session.scalars(
-                select(BankTransactionRow)
-                .where(BankTransactionRow.customer_id == customer_id)
-                .order_by(BankTransactionRow.date.desc(), BankTransactionRow.transaction_id.desc())
-                .limit(1)
-            ).first()
-            if row is None:
+        with child_scope(decision):
+            return self._read_latest(customer_id)
+
+    def _read_latest(self, customer_id: str) -> Transaction:
+        started = emit("repository.read_started", "repository", {"customer_filter": customer_id})
+        with child_scope(started):
+            try:
+                with Session() as session:
+                    row = session.scalars(
+                        select(BankTransactionRow)
+                        .where(BankTransactionRow.customer_id == customer_id)
+                        .order_by(
+                            BankTransactionRow.date.desc(), BankTransactionRow.transaction_id.desc()
+                        )
+                        .limit(1)
+                    ).first()
+                    record = self._record(row) if row is not None else None
+            except Exception as exc:
+                emit("repository.read_failed", "repository", {"error_type": type(exc).__name__})
+                raise
+            emit(
+                "repository.read_completed",
+                "repository",
+                {
+                    "outcome": "returned_data" if record else "no_data",
+                    "record": {
+                        "transaction_id": record.transaction_id,
+                        "customer_id": record.customer_id,
+                        "memo_provenance": record.memo_provenance,
+                    }
+                    if record
+                    else None,
+                },
+                provenance={"record": "bank_record", "record.memo": "external_untrusted"},
+            )
+            if record is None:
                 raise LookupError("Customer or transaction not found")
-            return self._record(row)
+            return record
 
     def snapshot_digest(self) -> str:
         snapshot = list_transactions()

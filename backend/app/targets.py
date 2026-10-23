@@ -10,6 +10,7 @@ from typing import Any
 from .assistant import BankToolProfile, make_bank_tool_profile
 from .bank import BankRepository
 from .defenses import REGISTRY
+from .evidence import EvidenceRecorder
 from .target_contracts import (
     CustomerAccessManifest,
     DefenseId,
@@ -72,11 +73,13 @@ def resolve_target(
     context: RequestContext,
     repository: BankRepository | None = None,
     tool_events: list[dict[str, Any]] | None = None,
+    evidence: EvidenceRecorder | None = None,
 ) -> ResolvedTarget:
-    """No provider access, environment loading, database access, or tool execution.
+    """No provider access, bank access, or tool execution.
 
     Context is supplied separately by trusted code. Policy selection can only choose
     reviewed factory branches; a defense cannot claim an unimplemented renderer.
+    Supplying a recorder explicitly opts into persisting the resolution observation.
     """
     # Revalidate even if trusted Python callers used model_copy/model_construct.
     config = TargetConfig.model_validate_json(config.model_dump_json())
@@ -98,10 +101,22 @@ def resolve_target(
         authenticated_customer_id=context.authenticated_customer_id,
         repository=repository,
         tool_events=tool_events,
+        evidence=evidence,
     )
-    return ResolvedTarget(
+    resolved = ResolvedTarget(
         config=config,
         context=context,
         bank_profile=profile,
         applied_defenses=config.defense_presets,
     )
+    if evidence is not None:
+        evidence.append(
+            "target.resolved",
+            "target_factory",
+            {
+                "target_digest": resolved.manifest().target_digest,
+                "tool_names": [tool.name for tool in profile.tools],
+            },
+            provenance={"target_digest": "system_trusted", "tool_names": "system_trusted"},
+        )
+    return resolved

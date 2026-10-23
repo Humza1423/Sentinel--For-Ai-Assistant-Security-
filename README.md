@@ -6,7 +6,9 @@ A local security lab that makes an agent vulnerability observable: replay an ind
 
 > **Scope:** Synthetic data and deterministic fixtures only. Scripted mode demonstrates that the harness, scorer, and controls work; it does not claim that an LLM was successfully attacked or that prompt injection can be universally prevented. An opt-in LangChain model-backed agent adapter is included, but live campaigns are not connected to the dashboard yet.
 
-**Current delivery:** T01 is complete. The next ticket is the runtime evidence recorder.
+**Current delivery:** T01 target inspection and T02 observed evidence are implemented.
+Chat, generated attacks, investigation and code repair remain later tickets in the
+[six-phase implementation plan](IMPLEMENTATION_PLAN.md).
 See the [roadmap](docs/ROADMAP.md), [contribution workflow](CONTRIBUTING.md), and
 [changelog](CHANGELOG.md). Ticket branches land on `main` through pull requests
 after backend and frontend CI passes.
@@ -74,3 +76,15 @@ campaigns and the separate live adapter have not been rewired in this ticket.
 Read the [T01 walkthrough](docs/T01_TARGETS.md) for request examples, code flow,
 tests, and learning notes, and [ADR 0003](docs/adr/0003-resolved-target-manifests.md)
 for the alternatives and the empty-tool-schema validation finding.
+
+## Observed evidence (T02)
+
+Tools can now opt into a durable recorder that captures actual requests, strict
+validation, permission decisions and SQLite reads. These events are separate from
+the dashboard's legacy scripted reports. Inspect persisted runs with
+`GET /api/v2/runs/{run_id}/events`; no client event-write endpoint exists.
+
+Run `cd backend && uv run --locked python -m scripts.evidence_demo` for an actual
+synthetic tool read and a strict denial in a disposable database, with no model or
+API usage. See the [T02 walkthrough](docs/T02_EVIDENCE.md) for the data flow, tests,
+failure handling and interview explanation.
