@@ -1,5 +1,9 @@
 # Banking Agent Security Workbench — Final MVP Implementation Plan
 
+> Historical design for the original deterministic MVP. See [the current roadmap](docs/ROADMAP.md)
+> for implementation status and the approved shared-runtime direction. Future-tense
+> descriptions below are design intent, not claims that those features are complete.
+
 ## 1. Product promise
 
 Build a local developer workbench that demonstrates how attacker-controlled banking data can manipulate a tool-using assistant, records the assistant's real behavior, applies a concrete security control, and replays the identical case to prove whether the control worked without breaking normal customer service.
