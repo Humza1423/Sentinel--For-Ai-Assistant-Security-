@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from sqlalchemy import (
@@ -122,6 +122,30 @@ class ChatTurnRow(Base):
     status: Mapped[str] = mapped_column(String(24), nullable=False)
     result_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     messages_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class BudgetAccountRow(Base):
+    __tablename__ = "budget_account"
+    account_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    started_at: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    prior_micro_usd: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    halted: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+
+class UsageChargeRow(Base):
+    __tablename__ = "usage_charges"
+    charge_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    created_at: Mapped[str] = mapped_column(
+        String(40), nullable=False, default=lambda: datetime.now(UTC).isoformat()
+    )
+    assessment_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    role: Mapped[str] = mapped_column(String(24), nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False)
+    reserved_micro_usd: Mapped[int] = mapped_column(Integer, nullable=False)
+    settled_micro_usd: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    plan_json: Mapped[str] = mapped_column(Text, nullable=False)
+    usage_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    provider_request_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
 
 _default_db = Path(__file__).resolve().parents[1] / "workbench.db"

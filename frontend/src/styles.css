@@ -3,6 +3,9 @@
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 .chat-heading { display: flex; justify-content: space-between; align-items: end; gap: 24px; }
 .chat-heading>div { flex: 1; min-width: 0; }
+.budget-panel { margin: 24px 0; padding: 18px 0; border-block: 1px solid #dce5f0; color: #61708f; font-size: 12px; line-height: 1.7; }
+.budget-panel summary { cursor: pointer; color: #38577f; font-weight: 600; }
+.budget-note { color: #61708f; font-size: 11px; }
 .chat-workspace .export-button { flex: 0 0 auto; width: auto; margin: 0; padding: 8px; border: 0; }
 .chat-workspace .chat-toolbar .export-button { margin-left: auto; }
 .chat-heading h1 { margin: 12px 0 16px; font-size: clamp(32px, 4vw, 52px); line-height: 1.08; letter-spacing: -.055em; font-weight: 700; }

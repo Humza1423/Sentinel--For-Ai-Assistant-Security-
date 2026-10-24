@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import BudgetPanel from './BudgetPanel'
 import {
   useInfiniteQuery,
   useMutation,
@@ -401,6 +402,7 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
             )}
           </aside>
         </div>
+        <BudgetPanel />
         <footer className="footer-note">
           <span>Sentinel · Local engineering workbench</span>
           <span>Selected lab target · Synthetic data only</span>

@@ -1,5 +1,11 @@
 # Changelog
 
+## T08 — Durable API budget controls
+
+- Added atomic project/assessment admission, versioned pricing and usage settlement.
+- Retained uncertain reservations across restart and halted admission on adapter overruns.
+- Exposed accounting/estimates in the workspace and disabled the former unmetered smoke path.
+
 ## T07 — Banking chat and security inspector
 
 - Made chat the default workspace, with actual run events beside each answer.

@@ -15,9 +15,9 @@ Each approved ticket has its own tests, learning review, and PR to protected mai
 | T03 | Scoped banking queries and isolated snapshots | T01–T02 | Complete |
 | T04 | Executable tool profiles and policy gateway | T03 | Complete |
 | T05 | Shared assistant subgraph with injectable fake model | T04 | Complete |
-| T06 | Session and bounded multi-turn chat API | T05 | Complete; phase review |
-| T07 | Banking chat beside a security inspector | T06 | Complete; phase review |
-| T08 | Atomic budget reservations and durable usage ledger | T01–T02 | Planned |
+| T06 | Session and bounded multi-turn chat API | T05 | Complete |
+| T07 | Banking chat beside a security inspector | T06 | Complete |
+| T08 | Atomic budget reservations and durable usage ledger | T01–T02 | Complete; phase review |
 | T09 | Live Responses adapter and explicit smoke check | T05, T08 | Planned |
 | T10 | Cross-customer scorer driven by observed events | T02, T05 | Planned |
 | T11 | Manifest-based surface analysis and bounded attacker | T01, T08–T10 | Planned |
@@ -128,6 +128,10 @@ and [ADR 0007](adr/0007-observed-assistant-graph.md). The comparison with
 session API; the current dashboard/campaign remain legacy scripted meanwhile.
 
 ## Non-negotiable proof rules
+
+T08 adds durable usage admission and the workspace budget summary. See
+[T08 learning note](T08_EVIDENCE.md) and [ADR 0010](adr/0010-durable-usage-broker.md).
+Live integration remains T09; the legacy unmetered adapter is disabled.
 
 T07 links chat answers to their persisted events. See [T07 learning note](T07_EVIDENCE.md)
 and [ADR 0009](adr/0009-chat-evidence-workspace.md).
