@@ -14,7 +14,7 @@ Each approved ticket has its own tests, learning review, and PR to protected mai
 | T02 | Runtime evidence recorder and versioned persistence | T01 | Complete |
 | T03 | Scoped banking queries and isolated snapshots | T01–T02 | Complete |
 | T04 | Executable tool profiles and policy gateway | T03 | Complete |
-| T05 | Shared assistant subgraph with injectable fake model | T04 | Planned |
+| T05 | Shared assistant subgraph with injectable fake model | T04 | Implemented; review gate |
 | T06 | Session and bounded multi-turn chat API | T05 | Planned |
 | T07 | Banking chat beside a security inspector | T06 | Planned |
 | T08 | Atomic budget reservations and durable usage ledger | T01–T02 | Planned |
@@ -108,12 +108,24 @@ The later assessment demo must chat with and attack the same selected lab target
 A protected profile is a separate reference/control test, never a generated fix.
 The Coding Agent must patch an isolated lab copy, pass focused checks and clean
 replay, and never label an unverified patch fixed. T04 creates no chat, agents,
-live model calls or generated repair. T05 is next after T04 review.
+live model calls or generated repair. T05 follows this boundary.
 
-Before T05, compare an explicit assistant graph with LangChain `create_agent`
-using a fake-model tool trace and record the evidence in an ADR. Before T09,
-reverify model pricing and finish the cost broker. Start live evidence with one
-end-to-end trial; the normal assessment may then use up to three attempts.
+T05 compared an explicit assistant graph with LangChain `create_agent` using
+a fake-model trace (ADR 0007). Before T09, reverify model pricing and finish
+the cost broker. Start live evidence with one end-to-end trial; the normal
+assessment may then use up to three attempts.
+
+## T05 — observed assistant runtime
+
+GitHub tracking: [T05 — shared assistant runtime](https://github.com/Humza1423/Sentinel--For-Ai-Assistant-Security-/issues/10).
+
+T05 adds one bounded LangGraph model/tool loop using T04's real tools and gateway.
+It records proposed calls, repository results, model-context dispatch and final
+validated output in the T02 evidence ledger. The same entry point can later
+serve chat, assessments and replay. See [the T05 learning note](T05_EVIDENCE.md)
+and [ADR 0007](adr/0007-observed-assistant-graph.md). The comparison with
+`create_agent` used fake tool traces; no provider calls were made. T06 adds the
+session API; the current dashboard/campaign remain legacy scripted meanwhile.
 
 ## Non-negotiable proof rules
 

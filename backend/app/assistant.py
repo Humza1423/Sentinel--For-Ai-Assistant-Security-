@@ -82,14 +82,14 @@ class StrictBankTool(StructuredTool):
             yield
             return
         try:
-            requested = self.evidence.append(
+            requested = self.evidence.append_in_scope(
                 "tool.requested",
                 "tool",
                 {"tool_name": self.name, "requested_arguments": tool_input},
             )
         except (ValueError, TypeError):
             # Retain rejection metadata instead of unsafe/non-JSON input.
-            requested = self.evidence.append(
+            requested = self.evidence.append_in_scope(
                 "tool.requested",
                 "tool",
                 {"tool_name": self.name, "input_capture_status": "rejected_payload"},
