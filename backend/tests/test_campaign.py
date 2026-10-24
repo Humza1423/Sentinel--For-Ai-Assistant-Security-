@@ -52,10 +52,10 @@ def test_langchain_defended_tool_schema_has_no_model_controlled_identity():
     assert "Northstar" not in tool.invoke({})
 
 
-def test_live_langchain_agent_can_be_constructed_without_sending_provider_requests(monkeypatch):
+def test_legacy_live_adapter_cannot_bypass_usage_broker(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "synthetic-test-secret")
-    agent = build_banking_agent(defended=True)
-    assert callable(agent.invoke)
+    with pytest.raises(RuntimeError, match="usage broker"):
+        build_banking_agent(defended=True)
 
 
 def test_langchain_vulnerable_fixture_can_reproduce_cross_customer_read():

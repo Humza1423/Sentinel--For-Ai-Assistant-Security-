@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 
 from .bank import ALICE_ID
+from .budget import UsageBroker, estimate
 from .campaign import run_campaign
 from .chat import recover_interrupted, require_session
 from .chat_api import router as chat_router
@@ -52,6 +53,11 @@ def health():
         "default_mode": "scripted",
         "live_agent_configured": bool(os.getenv("OPENAI_API_KEY")),
     }
+
+
+@app.get("/api/v2/usage")
+def usage_summary():
+    return {**UsageBroker().summary(), "call_estimate": estimate()}
 
 
 @app.post("/api/v2/targets/resolve", response_model=TargetManifest)

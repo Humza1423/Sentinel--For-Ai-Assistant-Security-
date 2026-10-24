@@ -63,7 +63,11 @@ The current demo uses a synthetic banking environment and fixed, deterministic s
 - **Cross-customer disclosure:** a controlled vulnerable lookup path exposes a synthetic marker in the baseline; the defended replay records a denial and checks that the marker never reached model context or output.
 - **Usefulness after defense:** five benign regression cases check that defenses preserve ordinary banking tasks.
 
-The full workflow above describes Sentinel's product vision. Today, the dashboard runs scripted fixture campaigns; an optional LangChain model-backed adapter has a separate smoke test. Custom target integrations and target-specific attack planning are future capabilities. The fixed scenarios demonstrate the harness and evidence path, not a successful attack on a live model.
+The full workflow above describes Sentinel's product vision. Today, the default chat
+runs an explicitly limited offline model through the shared runtime and actual
+banking tools, with persisted conversations and observed execution events.
+The separate scripted campaigns demonstrate fixed attack/replay fixtures.
+Live conversation and tailored attack generation remain upcoming work.
 
 ## Architecture and technology
 
@@ -110,7 +114,17 @@ Alembic migrations to a temporary database and block external provider HTTP requ
 They do not read or modify your local bank database. Full quality commands are in
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
-No API key is required for the deterministic local experience. Do not commit API keys or `.env*` files. Campaign summaries and ordered evidence are persisted in local SQLite. To load a key from a private file without copying it into this repository, set `OPENAI_ENV_FILE` to that file's path when starting the backend; it must have mode `0600`. The optional live-agent smoke test is `cd backend && uv run python scripts/live_agent_smoke.py` with `OPENAI_MODEL` optionally set. It makes a provider request and may incur API charges. The dashboard remains scripted-only; deterministic fixture campaigns never silently call an external model.
+No API key is required for the local experience. Do not commit keys or `.env*`
+files. SQLite persists conversations, evidence and budget accounting. The former
+unmetered live smoke path is disabled; T09 will integrate the usage broker with
+Responses. Adding a key alone does not enable provider calls.
+
+Before live use, check previous Sentinel API spend and initialize accounting once:
+`cd backend && uv run python -m app.budget --prior-spend-usd AMOUNT`.
+Use zero only when no earlier project charges exist. `/api/v2/usage` reports the
+accounting start, prior amount, recorded usage and uncertain reservations. The
+ledger enforces US$45 project/US$2 assessment ceilings for brokered calls and cannot
+track unrelated applications using the same key. See [T08 notes](docs/T08_EVIDENCE.md).
 
 ## Evidence and limits
 
