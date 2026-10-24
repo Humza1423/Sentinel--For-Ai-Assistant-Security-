@@ -55,6 +55,30 @@ class BankTransactionRow(Base):
     memo_provenance: Mapped[str] = mapped_column(String(32), nullable=False)
 
 
+class BankSnapshotRow(Base):
+    __tablename__ = "bank_snapshots"
+    snapshot_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    dataset_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    reference_date: Mapped[str] = mapped_column(String(10), nullable=False)
+    digest: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    contents_json: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class BankMemoOverlayRow(Base):
+    __tablename__ = "bank_memo_overlays"
+    __table_args__ = (
+        UniqueConstraint("run_id", "transaction_id", name="uq_overlay_run_transaction"),
+    )
+    overlay_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    run_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    snapshot_id: Mapped[str] = mapped_column(
+        ForeignKey("bank_snapshots.snapshot_id"), nullable=False
+    )
+    transaction_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    memo: Mapped[str] = mapped_column(Text, nullable=False)
+    memo_provenance: Mapped[str] = mapped_column(String(32), nullable=False)
+
+
 class ObservedRunRow(Base):
     __tablename__ = "observed_runs"
     run_id: Mapped[str] = mapped_column(String(36), primary_key=True)

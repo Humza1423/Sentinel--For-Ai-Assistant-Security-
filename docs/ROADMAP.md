@@ -12,7 +12,7 @@ Each approved ticket has its own tests, learning review, and PR to protected mai
 | --- | --- | --- | --- |
 | T01 | Resolved target contracts and actual-tool manifest | None | Complete; 47 focused tests |
 | T02 | Runtime evidence recorder and versioned persistence | T01 | Implemented; awaiting review |
-| T03 | Scoped banking queries and isolated snapshots | T01–T02 | Planned |
+| T03 | Scoped banking queries and isolated snapshots | T01–T02 | Implemented; PR review |
 | T04 | Executable tool profiles and policy gateway | T03 | Planned |
 | T05 | Shared assistant subgraph with injectable fake model | T04 | Planned |
 | T06 | Session and bounded multi-turn chat API | T05 | Planned |
@@ -75,11 +75,26 @@ Acceptance gates:
 - Focused tests cover successful, denied, failed, and partially completed traces.
 - Default tests make no provider calls.
 
-## Next ticket after T02 review: T03
+## T03 — scoped synthetic banking snapshots
 
-Expand scoped banking queries, integer-cent fixtures, isolated snapshots and memo
-overlays. Follow the complete ticket gates in the authoritative plan; do not start
-until the current implementation has been reviewed with the user.
+T03 adds a fixed-date, 120-record CAD snapshot with exact contents and a canonical
+digest, trusted-session queries, integer-cent calculations and per-run untrusted
+memo overlays. Legacy demo rows and reports remain unchanged. See
+[the T03 learning note](T03_EVIDENCE.md) and [ADR 0005](adr/0005-versioned-bank-snapshots.md).
+
+Acceptance gates:
+
+- Snapshot ID/version/reference date/digest and all transaction contents persist.
+- Query scope comes from `RequestContext`; date/category/amount filters cannot
+  broaden access to another customer.
+- Independent totals and inclusive date-boundary tests pass using integer cents.
+- Overlays retain `external_untrusted` provenance and cannot change the base
+  snapshot or another run.
+- The additive migration preserves existing reports, events and bank rows.
+- Snapshot contents and overlays reject ordinary database update/delete.
+- Backend/frontend checks make zero provider calls.
+
+T04 is next after T03 review.
 
 Before T05, compare an explicit assistant graph with LangChain `create_agent`
 using a fake-model tool trace and record the evidence in an ADR. Before T09,
