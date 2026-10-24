@@ -100,6 +100,30 @@ class ObservedEventRow(Base):
     event_json: Mapped[str] = mapped_column(Text, nullable=False)
 
 
+class ChatSessionRow(Base):
+    __tablename__ = "chat_sessions"
+    session_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    owner_digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    customer_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    config_json: Mapped[str] = mapped_column(Text, nullable=False)
+    target_digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    active_request: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    worker_pid: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class ChatTurnRow(Base):
+    __tablename__ = "chat_turns"
+    __table_args__ = (UniqueConstraint("session_id", "request_id"),)
+    turn_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[str] = mapped_column(ForeignKey("chat_sessions.session_id"), nullable=False)
+    request_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    run_id: Mapped[str] = mapped_column(ForeignKey("observed_runs.run_id"), nullable=False)
+    user_message: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False)
+    result_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    messages_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
 _default_db = Path(__file__).resolve().parents[1] / "workbench.db"
 DATABASE_URL = os.getenv("WORKBENCH_DATABASE_URL", f"sqlite:///{_default_db}")
 engine = create_engine(

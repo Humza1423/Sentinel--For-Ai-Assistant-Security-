@@ -14,8 +14,8 @@ Each approved ticket has its own tests, learning review, and PR to protected mai
 | T02 | Runtime evidence recorder and versioned persistence | T01 | Complete |
 | T03 | Scoped banking queries and isolated snapshots | T01–T02 | Complete |
 | T04 | Executable tool profiles and policy gateway | T03 | Complete |
-| T05 | Shared assistant subgraph with injectable fake model | T04 | Implemented; review gate |
-| T06 | Session and bounded multi-turn chat API | T05 | Planned |
+| T05 | Shared assistant subgraph with injectable fake model | T04 | Complete |
+| T06 | Session and bounded multi-turn chat API | T05 | Complete; phase review |
 | T07 | Banking chat beside a security inspector | T06 | Planned |
 | T08 | Atomic budget reservations and durable usage ledger | T01–T02 | Planned |
 | T09 | Live Responses adapter and explicit smoke check | T05, T08 | Planned |
@@ -128,6 +128,10 @@ and [ADR 0007](adr/0007-observed-assistant-graph.md). The comparison with
 session API; the current dashboard/campaign remain legacy scripted meanwhile.
 
 ## Non-negotiable proof rules
+
+T06 adds persisted server-owned conversations and verified complete-turn history.
+See [T06 learning note](T06_EVIDENCE.md) and [ADR 0008](adr/0008-persisted-chat-turns.md).
+The HTTP chat remains an explicitly limited offline fixture until T09.
 
 - Target definitions come from executable tools and enforced configuration.
 - Trusted code controls authentication, authorization, and verdicts.
