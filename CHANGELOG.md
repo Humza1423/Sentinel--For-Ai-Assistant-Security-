@@ -1,5 +1,12 @@
 # Changelog
 
+## T09 — Metered live banking conversation (live validation pending)
+
+- Added the brokered LangChain Responses adapter and explicit live/fixture sessions.
+- Included fixed-date banking context in executable target manifests.
+- Kept dispatch evidence accurate on budget and wire-limit rejection.
+- Added a repeatable opt-in chat evaluation suite; prior-spend initialization gates paid runs.
+
 ## T08 — Durable API budget controls
 
 - Added atomic project/assessment admission, versioned pricing and usage settlement.
