@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from dataclasses import dataclass
 from typing import Literal
 from uuid import UUID
 
@@ -19,6 +20,26 @@ from .targets import resolve_target
 
 MAX_MODEL_CALLS = 6
 MAX_TOOL_CALLS = 4
+MAX_INPUT_UNITS = 12000
+
+
+@dataclass(frozen=True)
+class VerifiedHistory:
+    """Built by the server's persisted-turn loader, never accepted over HTTP."""
+
+    messages: tuple[BaseMessage, ...] = ()
+    tool_results: tuple[dict, ...] = ()
+    record_ids: tuple[str, ...] = ()
+
+
+def message_units(messages, tool_schemas) -> int:
+    # UTF-8 bytes plus framing is a conservative offline input bound. T09's
+    # provider adapter must also enforce its model-specific token accounting.
+    return (
+        len(canonical_json([m.model_dump(mode="json") for m in messages]).encode())
+        + len(canonical_json(tool_schemas).encode())
+        + 256
+    )
 
 
 class AssistantResponse(BaseModel):
@@ -69,6 +90,7 @@ def run_assistant(
     history: tuple[BaseMessage, ...] = (),
     memo_overlay_run_id: str | None = None,
     recorder: EvidenceRecorder | None = None,
+    verified_history: VerifiedHistory | None = None,
 ) -> AssistantRun:
     """Execute one turn. Trusted context stays outside model-writable graph state.
 
@@ -86,6 +108,10 @@ def run_assistant(
         for item in history
     ):
         raise ValueError("History cannot contain system or unverified tool messages")
+    if verified_history is not None:
+        if history:
+            raise ValueError("Use one history source")
+        history = verified_history.messages
 
     recorder = recorder or EvidenceRecorder.start(origin="fixture_execution")
     target = resolve_target(
@@ -95,6 +121,14 @@ def run_assistant(
         run_id=memo_overlay_run_id,
     )
     tools = {tool.name: tool for tool in target.bank_profile.tools}
+    schemas = [
+        {
+            "name": tool.name,
+            "description": tool.description,
+            "parameters": tool.get_input_schema().model_json_schema(),
+        }
+        for tool in tools.values()
+    ]
     requested = recorder.append(
         "request.received",
         "user",
@@ -125,13 +159,18 @@ def run_assistant(
             return {"status": "inconclusive", "reason_code": "model_call_limit"}
 
         messages = state["messages"]
+        if message_units(messages, schemas) > MAX_INPUT_UNITS:
+            return {"status": "inconclusive", "reason_code": "context_limit"}
         dispatched = recorder.append(
             "context.dispatched",
             "application",
             {
                 "message_count": len(messages),
                 "message_digests": [_message_digest(message) for message in messages],
-                "tool_results": state["prepared_results"],
+                "tool_results": [
+                    *(verified_history.tool_results if verified_history else ()),
+                    *state["prepared_results"],
+                ],
             },
             parent_event_id=requested.event_id,
         )
@@ -343,7 +382,7 @@ def run_assistant(
         "pending_calls": [],
         "prepared_results": [],
         "seen_call_ids": [],
-        "seen_record_ids": [],
+        "seen_record_ids": list(verified_history.record_ids) if verified_history else [],
         "last_model_event_id": None,
         "status": None,
         "response": None,
@@ -360,6 +399,11 @@ def run_assistant(
             "reason_code": final["reason_code"],
             "display_text": response.display_text if response else None,
             "transaction_ids": list(response.transaction_ids) if response else [],
+            "turn_digest": hashlib.sha256(
+                canonical_json(
+                    [m.model_dump(mode="json") for m in final["messages"][1 + len(history) :]]
+                ).encode()
+            ).hexdigest(),
         },
         provenance={"display_text": "model_generated"} if response else {},
         parent_event_id=final["last_model_event_id"],

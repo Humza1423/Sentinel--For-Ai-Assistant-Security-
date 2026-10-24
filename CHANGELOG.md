@@ -1,5 +1,12 @@
 # Changelog
 
+## T06 — Persistent banking conversations
+
+- Added server-owned synthetic sessions, strict chat endpoints and private event access.
+- Preserved verified tool/result history with bounded input, durable request claims
+  and idempotent results. Restart recovery does not rerun interrupted work.
+- Added an explicitly limited offline banking model over the shared runtime.
+
 ## T05 — Shared banking-assistant runtime
 
 - Added a bounded two-node LangGraph assistant loop using LangChain messages,
