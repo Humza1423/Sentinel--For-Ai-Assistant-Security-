@@ -1,5 +1,16 @@
 # Changelog
 
+## T05 — Shared banking-assistant runtime
+
+- Added a bounded two-node LangGraph assistant loop using LangChain messages,
+  injected models and T04 tools, without a new paid-model path.
+- Recorded model proposals, actual tool reads, prepared results, model-context
+  dispatch and validated final output as separate observed events.
+- Preserved trusted session authority, rejected unsupported citations and
+  terminated failures/limits without scripted fallback. Unverified tool history
+  and unmetered live models are rejected. Existing campaign and dashboard
+  behavior remains labeled legacy.
+
 ## T04 — Executable banking tool boundary
 
 - Added reviewed session-bound and vulnerable synthetic lab tool profiles with a

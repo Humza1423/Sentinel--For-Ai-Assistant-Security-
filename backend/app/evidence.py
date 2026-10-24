@@ -310,6 +310,30 @@ class EvidenceRecorder:
             raise EvidenceError("Could not persist evidence event") from None
         return event
 
+    def append_in_scope(
+        self,
+        name: EventName,
+        actor: Actor,
+        payload: dict,
+        *,
+        provenance: dict[str, Provenance] | None = None,
+    ) -> RunEvent:
+        """Use the active parent only when it belongs to this recorder's run."""
+        scope = _scope.get()
+        parent = scope.parent_event_id if scope and scope.recorder.run_id == self.run_id else None
+        return self.append(name, actor, payload, provenance=provenance, parent_event_id=parent)
+
+    def last_sequence(self) -> int:
+        """Return the persisted tail, independent of event-page size."""
+        try:
+            with self.session_factory() as session:
+                run = session.get(ObservedRunRow, str(self.run_id))
+                if run is None:
+                    raise UnknownRunError("Evidence run not found")
+                return run.last_sequence
+        except SQLAlchemyError:
+            raise EvidenceError("Could not read evidence sequence") from None
+
     @contextmanager
     def bind(self, *, parent_event_id: UUID | None = None):
         token = _scope.set(EvidenceScope(self, parent_event_id))

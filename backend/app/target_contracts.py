@@ -20,6 +20,12 @@ DEFAULT_INSTRUCTIONS = (
     "Never claim a tool result you did not receive."
 )
 
+RUNTIME_OUTPUT_INSTRUCTIONS = (
+    "For your final answer, return only a JSON object with kind ('answer' or 'refusal'), "
+    "display_text (customer-facing text), and transaction_ids (IDs received from tools, or []). "
+    "You may call the exposed tools before producing that final JSON."
+)
+
 
 class TargetContract(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
@@ -118,6 +124,7 @@ class TargetManifest(TargetContract):
     schema_version: Literal["1.0"] = "1.0"
     target_digest: str
     requested_config: TargetConfig
+    runtime_output_contract: str = RUNTIME_OUTPUT_INSTRUCTIONS
     effective_tool_profile: ToolProfileId
     tools: tuple[ToolManifest, ...]
     customer_access: CustomerAccessManifest
