@@ -4,7 +4,7 @@ import json
 import pytest
 
 from app.assistant import build_banking_agent, make_bank_tools
-from app.bank import ALICE_ID, BOB_ID, BOB_MARKER, BankRepository
+from app.bank import ALICE_ID, BOB_ID, BOB_MARKER, BankRepository, VulnerableLabBankRepository
 from app.campaign import run_campaign
 
 
@@ -70,5 +70,5 @@ def test_sqlite_bank_snapshot_is_repeatable_and_repository_checks_ownership():
     repository = BankRepository()
     assert repository.snapshot_digest() == BankRepository().snapshot_digest()
     with pytest.raises(PermissionError):
-        repository.get_for(BOB_ID, ALICE_ID, vulnerable=False)
-    assert repository.get_for(BOB_ID, ALICE_ID, vulnerable=True).customer_id == BOB_ID
+        repository.get_for(BOB_ID, ALICE_ID)
+    assert VulnerableLabBankRepository(repository).lookup_latest(BOB_ID).customer_id == BOB_ID

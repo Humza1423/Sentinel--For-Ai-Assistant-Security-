@@ -21,6 +21,19 @@ Use banking assistant
 → Accept, reject, export, or create a PR
 ```
 
+**Durable product rule:** Sentinel inspects the target assistant's executable tools,
+policies and data access before attacking it. The Attacker Agent creates attacks
+for that target; actual execution evidence establishes whether a weakness was
+observed. The Investigator Agent uses that evidence and the recorded source
+revision to explain the cause. The Defense Agent reasons from the cause and
+proposes a repair, rather than choosing a canned fix from a violation-to-fix map.
+Only after the engineer requests **Generate Fix** does the Coding Agent create
+and apply a new patch in an isolated copy of the vulnerable target. Sentinel
+tests that generated patch, replays the attack, and shows its exact code diff and
+results. A prebuilt protected implementation may serve as a reference or an
+independent control test; it is never the Coding Agent's generated repair and
+must never be substituted for that patch in a proof-of-fix report.
+
 **Ticket numbers are identifiers—not strict execution order.** Preserve IDs for
 GitHub history. Phases describe capabilities; dependencies determine execution.
 See [the status tracker](docs/ROADMAP.md) and [the historical MVP plan](docs/archive/DETERMINISTIC_MVP_PLAN.md).
@@ -65,6 +78,16 @@ names without manufacturing observations. No provider calls; T02 costs $0.
 - **Build/why:** Typed tools and a policy gateway separate requested actions from application authority.
 - **Visible:** Requested/effective arguments and actual permission decisions.
 - **Depends:** T03. **Gate:** Protected tools omit customer IDs; malformed input stops before reads; repository checks are independent; vulnerable tools stay in the labeled lab.
+
+T04 establishes executable target and reference-control boundaries. Selecting a
+prebuilt protected profile is not a generated repair or proof that the later
+Coding Agent patched the vulnerable target. In the assessment demo, the visible
+assistant is the selected vulnerable synthetic lab target; Sentinel attacks that
+same assistant. After “Generate Fix,” it tests a patched isolated copy of that
+target. The protected profile remains a separate reference/direct-control test.
+For both MVP attacks, generated repairs receive focused security and normal-use
+tests plus one bounded correction attempt. A patch is never labeled fixed unless
+those checks and clean replay pass.
 
 ## 2. Working banking chatbot — T05–T09
 
@@ -120,7 +143,7 @@ names without manufacturing observations. No provider calls; T02 costs $0.
 
 ### T11 — Generate attacks for this assistant
 
-- **Build/why:** An Attacker Agent uses sanitized manifests/feedback to propose structured memo attacks.
+- **Build/why:** An Attacker Agent analyzes the target's real exposed capabilities through sanitized manifests/feedback and proposes structured memo attacks relevant to them.
 - **Visible:** Tailored payload, objective and observed outcome.
 - **Depends:** T01, T08–T10. **Gate:** Objective/channel/payload bounds and at most three attempts; feedback excludes protected values; seeds remain labeled regression fixtures.
 
@@ -134,13 +157,13 @@ names without manufacturing observations. No provider calls; T02 costs $0.
 
 ### T21 — Investigate the cause
 
-- **Build/why:** Inspect evidence and bounded source snippets to locate the violated trust boundary.
+- **Build/why:** An Investigator Agent inspects observed evidence and bounded source snippets at the recorded revision to locate the violated trust boundary.
 - **Visible:** A concise investigation links events to actual source/configuration locations.
 - **Depends:** T03, T10–T11. **Gate:** References resolve at the recorded revision; facts/hypotheses are separate; explanations cannot become deterministic verdicts.
 
 ### T22 — Propose a repair
 
-- **Build/why:** A Defense Agent creates a structured RemediationPlan beyond a violation-to-preset lookup.
+- **Build/why:** A Defense Agent reasons from the Investigator's evidence-backed cause and creates a structured RemediationPlan; no hard-coded violation-to-fix mapping selects its proposal.
 - **Visible:** Cause, proposed change, expected effect, usability risks and verification requirements.
 - **Depends:** T08, T21. **Gate:** Support configuration, controls/combinations and source patches; validate feasibility/scope; identify inaccessible source explicitly.
 
@@ -152,15 +175,15 @@ names without manufacturing observations. No provider calls; T02 costs $0.
 
 ### T24 — Generate and apply the candidate patch
 
-- **Build/why:** A Coding Agent proposes a bounded patch; trusted code validates and applies it.
+- **Build/why:** After “Generate Fix,” a Coding Agent creates a new bounded patch for the vulnerable target; trusted code validates and applies it in the isolated workspace.
 - **Visible:** Complete source/configuration diff and generation status.
-- **Depends:** T08, T23. **Gate:** Enforce paths/size; prohibit scorer, evidence and verification-test edits; one candidate plus one bounded correction; record changes/failures.
+- **Depends:** T08, T23. **Gate:** Enforce paths/size; prohibit scorer, evidence and verification-test edits; one candidate plus one bounded correction; record changes/failures. A prebuilt protected profile cannot stand in for the generated patch.
 
 ### T25 — Verify the candidate repair
 
-- **Build/why:** A trusted runner combines security tests, normal-use tests and clean replay.
+- **Build/why:** A trusted runner tests the Coding Agent's applied patch, normal-use behavior and clean attack replay, then shows the exact diff and results.
 - **Visible:** Verified, rejected or inconclusive candidate with supporting results.
-- **Depends:** T12–T13, T24. **Gate:** Verify the recorded revision and frozen attack/snapshot; reject failed tests, incomplete evidence and unexpected replay differences.
+- **Depends:** T12–T13, T24. **Gate:** Verify the generated patch's recorded revision and frozen attack/snapshot; reject failed tests, incomplete evidence and unexpected replay differences. Reference controls are reported separately from generated-patch verification.
 
 ### T26 — Let the engineer decide
 
@@ -178,7 +201,7 @@ names without manufacturing observations. No provider calls; T02 costs $0.
 
 ### T12 — Replay the same case cleanly
 
-- **Build/why:** Compare independently recorded paired inputs with a candidate configuration/source revision.
+- **Build/why:** Compare independently recorded paired inputs with a candidate configuration/source revision; the mechanism later verifies a generated patch, while reference-control runs retain their own label.
 - **Visible:** Isolated before/after conversations and explicit controlled-input comparison.
 - **Depends:** T11, T13, T22. **Gate:** Fresh histories and identical request/payload/identity/snapshot/model settings; only declared repair differences; no automatic preset selection required.
 
@@ -196,7 +219,7 @@ names without manufacturing observations. No provider calls; T02 costs $0.
 
 ### T15 — Show a clear proof workspace
 
-- **Build/why:** Join conversations, investigation, proposal, diff, tests and evidence in one coherent interface.
+- **Build/why:** Join conversations, investigation, proposal, generated code diff, tests and evidence in one coherent interface, labeling reference controls separately.
 - **Visible:** Finding → Proposed repair → Verification without requiring raw JSON.
 - **Depends:** T07, T14, T21–T22, T25. **Gate:** Evidence-linked claims, visible failure/uncertainty, expandable detail, matching report/UI, accessibility and responsive review.
 

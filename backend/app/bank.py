@@ -22,6 +22,10 @@ from .store import (
 )
 from .target_contracts import RequestContext
 
+TransactionCategory = Literal[
+    "groceries", "dining", "transport", "health", "shopping", "income", "transfer", "other"
+]
+
 
 @dataclass(frozen=True)
 class Transaction:
@@ -41,9 +45,7 @@ class SnapshotTransaction(BaseModel):
     merchant: str = Field(min_length=1, max_length=128)
     amount_cents: int
     date: date
-    category: Literal[
-        "groceries", "dining", "transport", "health", "shopping", "income", "transfer", "other"
-    ]
+    category: TransactionCategory
     currency: Literal["CAD"] = "CAD"
     memo: str = Field(max_length=4000)
     memo_provenance: Literal["external_untrusted", "bank_record"] = "external_untrusted"
@@ -89,7 +91,7 @@ def _snapshot_fixture(reference_date: date) -> tuple[SnapshotTransaction, ...]:
                 amount_cents=abs(cents) if category == "income" else -cents,
                 date=reference_date - timedelta(days=index),
                 category=category,
-                memo="Synthetic banking activity",
+                memo=BOB_MARKER if index == 2 else "Synthetic banking activity",
             )
         )
     return tuple(rows)
@@ -152,18 +154,14 @@ class BankRepository:
         with child_scope(decision):
             return self._read_latest(authenticated_customer_id)
 
-    def get_for(
-        self, customer_id: str, authenticated_customer_id: str, *, vulnerable: bool
-    ) -> Transaction:
-        allowed = vulnerable or customer_id == authenticated_customer_id
+    def get_for(self, customer_id: str, authenticated_customer_id: str) -> Transaction:
+        allowed = customer_id == authenticated_customer_id
         decision = emit(
             "authorization.decided",
             "repository",
             {
                 "decision": "allowed" if allowed else "denied",
-                "reason_code": "deliberate_vulnerable_lab_policy"
-                if vulnerable
-                else "repository_ownership_check",
+                "reason_code": "repository_ownership_check",
                 "authenticated_customer_id": authenticated_customer_id,
                 "requested_customer_id": customer_id,
             },
@@ -224,7 +222,7 @@ class BankRepository:
 class SnapshotBankRepository:
     """Always-safe queries over a persisted immutable synthetic snapshot."""
 
-    DATASET_VERSION = "sentinel-bank-v1"
+    DATASET_VERSION = "sentinel-bank-v2"
     REFERENCE_DATE = date(2026, 10, 23)
 
     _snapshot: BankSnapshot = field(init=False, repr=False)
@@ -346,6 +344,50 @@ class SnapshotBankRepository:
         )
         return result
 
+    def transaction_detail(
+        self, context: RequestContext, transaction_id: str
+    ) -> SnapshotTransaction:
+        try:
+            record = self._owned_transaction(context, transaction_id)
+        except LookupError:
+            emit(
+                "authorization.decided",
+                "repository",
+                {
+                    "decision": "denied",
+                    "reason_code": "transaction_not_owned_or_missing",
+                    "authenticated_customer_id": context.authenticated_customer_id,
+                    "transaction_id": transaction_id,
+                },
+                provenance={"authenticated_customer_id": "system_trusted"},
+            )
+            raise
+        decision = emit(
+            "authorization.decided",
+            "repository",
+            {
+                "decision": "allowed",
+                "reason_code": "transaction_owned_by_session",
+                "authenticated_customer_id": context.authenticated_customer_id,
+                "transaction_id": transaction_id,
+            },
+            provenance={"authenticated_customer_id": "system_trusted"},
+        )
+        with child_scope(decision):
+            emit(
+                "repository.read_completed",
+                "repository",
+                {
+                    "outcome": "returned_data",
+                    "snapshot_id": self.snapshot.snapshot_id,
+                    "snapshot_digest": self.snapshot.digest,
+                    "record_ids": [record.transaction_id],
+                    "record_owners": [record.customer_id],
+                },
+                provenance={"record_ids": "bank_record", "record_owners": "bank_record"},
+            )
+        return record
+
     def spending_total(
         self, context: RequestContext, *, start: date, end: date, category: str | None = None
     ) -> int:
@@ -398,6 +440,36 @@ class VulnerableLabBankRepository:
         self._repository = repository or BankRepository()
 
     def lookup_latest(self, requested_customer_id: str) -> Transaction:
-        return self._repository.get_for(
-            requested_customer_id, requested_customer_id, vulnerable=True
+        return self._repository._read_latest(requested_customer_id)
+
+
+class VulnerableSnapshotLabRepository:
+    """Deliberately unsafe synthetic target; never used by protected tools."""
+
+    def __init__(self) -> None:
+        self.snapshot = SnapshotBankRepository().snapshot
+
+    def lookup_latest(self, requested_customer_id: str) -> SnapshotTransaction:
+        record = next(
+            (
+                item
+                for item in self.snapshot.transactions
+                if item.customer_id == requested_customer_id
+            ),
+            None,
         )
+        emit(
+            "repository.read_completed",
+            "repository",
+            {
+                "outcome": "returned_data" if record else "no_data",
+                "snapshot_id": self.snapshot.snapshot_id,
+                "snapshot_digest": self.snapshot.digest,
+                "record_ids": [record.transaction_id] if record else [],
+                "record_owners": [record.customer_id] if record else [],
+            },
+            provenance={"record_ids": "bank_record", "record_owners": "bank_record"},
+        )
+        if record is None:
+            raise LookupError("No matching customer transaction")
+        return record

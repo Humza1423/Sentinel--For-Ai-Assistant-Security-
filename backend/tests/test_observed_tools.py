@@ -21,7 +21,9 @@ def context():
 
 def test_real_tool_to_repository_trace_and_causality():
     recorder = EvidenceRecorder.start()
-    target = resolve_target(TargetConfig(), context=context(), evidence=recorder)
+    target = resolve_target(
+        TargetConfig(), context=context(), evidence=recorder, repository=BankRepository()
+    )
     output = target.bank_profile.tools[0].invoke({})
     assert "T-102" in output
     events = read_events(recorder.run_id).events
@@ -83,7 +85,7 @@ def test_repository_denial_records_actual_decision_without_read(monkeypatch):
 
     monkeypatch.setattr("app.bank.Session", forbidden_query)
     with recorder.bind(), pytest.raises(PermissionError):
-        repository.get_for(BOB_ID, ALICE_ID, vulnerable=False)
+        repository.get_for(BOB_ID, ALICE_ID)
     events = read_events(recorder.run_id).events
     assert len(events) == 1
     assert events[0].actor == "repository"
@@ -117,7 +119,7 @@ def test_lab_read_is_real_but_not_mislabeled_as_model_context_delivery():
     assert BOB_MARKER in tool.invoke({"customer_id": BOB_ID})
     events = read_events(recorder.run_id).events
     read = next(e for e in events if e.name == "repository.read_completed")
-    assert read.payload["record"]["customer_id"] == BOB_ID
+    assert read.payload["record_owners"] == [BOB_ID]
     assert not any(e.name.startswith("context.") for e in events)
     assert BOB_MARKER not in " ".join(e.model_dump_json() for e in events)
 
@@ -128,7 +130,9 @@ def test_missing_record_is_not_a_successful_data_read():
     assert tool.invoke({"customer_id": "C-nonexistent"}) == "No matching transaction."
     events = read_events(recorder.run_id).events
     completed = next(e for e in events if e.name == "repository.read_completed")
-    assert completed.payload == {"outcome": "no_data", "record": None}
+    assert completed.payload["outcome"] == "no_data"
+    assert completed.payload["record_ids"] == []
+    assert completed.payload["record_owners"] == []
 
 
 def test_repository_failure_keeps_partial_evidence_without_sensitive_error_text(monkeypatch):
@@ -167,7 +171,7 @@ def test_failed_recorder_prevents_tool_execution():
 
 def test_recording_failure_after_read_never_emits_tool_success(monkeypatch):
     recorder = EvidenceRecorder.start()
-    tool = make_bank_tools(defended=True, evidence=recorder)[0]
+    tool = make_bank_tools(defended=True, repository=BankRepository(), evidence=recorder)[0]
     original_append = EvidenceRecorder.append
 
     def append(self, name, *args, **kwargs):
@@ -216,12 +220,9 @@ def test_async_tool_execution_preserves_run_context_and_resets_afterward():
     assert BOB_MARKER not in outputs[0] and BOB_MARKER in outputs[1]
     for recorder, customer in ((first, ALICE_ID), (second, BOB_ID)):
         events = read_events(recorder.run_id).events
-        assert (
-            next(e for e in events if e.name == "repository.read_completed").payload["record"][
-                "customer_id"
-            ]
-            == customer
-        )
+        assert next(e for e in events if e.name == "repository.read_completed").payload[
+            "record_owners"
+        ] == [customer]
         ids = {e.event_id for e in events}
         assert all(e.parent_event_id is None or e.parent_event_id in ids for e in events)
         assert events[-1].name == "tool.completed"

@@ -8,7 +8,14 @@ from uuid import uuid4
 from langgraph.graph import END, START, StateGraph
 from typing_extensions import TypedDict
 
-from .bank import ALICE_ID, APPROVED_HELP_URL, BOB_ID, BOB_MARKER, BankRepository
+from .bank import (
+    ALICE_ID,
+    APPROVED_HELP_URL,
+    BOB_ID,
+    BOB_MARKER,
+    BankRepository,
+    VulnerableLabBankRepository,
+)
 from .contracts import (
     BenignResult,
     CampaignReport,
@@ -129,7 +136,7 @@ def _cross_customer_run(*, defended: bool) -> RunResult:
             _event(5, "assistant_output", response),
         ]
     else:
-        record = repo.get_for(requested, ALICE_ID, vulnerable=True)
+        record = VulnerableLabBankRepository(repo).lookup_latest(requested)
         tool = ToolEvent(
             tool="get_customer_transaction",
             requested_customer_id=requested,

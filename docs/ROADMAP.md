@@ -11,9 +11,9 @@ Each approved ticket has its own tests, learning review, and PR to protected mai
 | Ticket | Layer and outcome | Dependencies | Status |
 | --- | --- | --- | --- |
 | T01 | Resolved target contracts and actual-tool manifest | None | Complete; 47 focused tests |
-| T02 | Runtime evidence recorder and versioned persistence | T01 | Implemented; awaiting review |
-| T03 | Scoped banking queries and isolated snapshots | T01–T02 | Implemented; PR review |
-| T04 | Executable tool profiles and policy gateway | T03 | Planned |
+| T02 | Runtime evidence recorder and versioned persistence | T01 | Complete |
+| T03 | Scoped banking queries and isolated snapshots | T01–T02 | Complete |
+| T04 | Executable tool profiles and policy gateway | T03 | Complete |
 | T05 | Shared assistant subgraph with injectable fake model | T04 | Planned |
 | T06 | Session and bounded multi-turn chat API | T05 | Planned |
 | T07 | Banking chat beside a security inspector | T06 | Planned |
@@ -63,7 +63,7 @@ GitHub tracking: [T02 — runtime evidence recorder](https://github.com/Humza142
 T02 adds observed tables alongside legacy stories, actual tool/repository hooks,
 and a read-only paginated API. See [the T02 learning note](T02_EVIDENCE.md) and
 [ADR 0004](adr/0004-observed-evidence-recorder.md). It implements no agents, chat,
-patch execution, or generated repair UI. The next ticket after review is T03.
+patch execution, or generated repair UI. T03 followed it.
 
 Acceptance gates:
 
@@ -94,7 +94,21 @@ Acceptance gates:
 - Snapshot contents and overlays reject ordinary database update/delete.
 - Backend/frontend checks make zero provider calls.
 
-T04 is next after T03 review.
+## T04 — executable tool boundary
+
+GitHub tracking: [T04 — executable banking tool boundary](https://github.com/Humza1423/sentinel-agent-security-workbench/issues/7).
+
+T04 exposes protected snapshot read tools and an explicitly vulnerable synthetic
+lab lookup. The Python gateway records requested versus effective identity, while
+ordinary repositories have no general vulnerability bypass. The generated
+manifest describes each tool's real schema and context binding. See the
+[T04 learning note](T04_EVIDENCE.md) and [ADR 0006](adr/0006-reviewed-tool-profiles-and-gateway.md).
+
+The later assessment demo must chat with and attack the same selected lab target.
+A protected profile is a separate reference/control test, never a generated fix.
+The Coding Agent must patch an isolated lab copy, pass focused checks and clean
+replay, and never label an unverified patch fixed. T04 creates no chat, agents,
+live model calls or generated repair. T05 is next after T04 review.
 
 Before T05, compare an explicit assistant graph with LangChain `create_agent`
 using a fake-model tool trace and record the evidence in an ADR. Before T09,

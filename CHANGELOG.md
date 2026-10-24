@@ -1,5 +1,19 @@
 # Changelog
 
+## T04 — Executable banking tool boundary
+
+- Added reviewed session-bound and vulnerable synthetic lab tool profiles with a
+  small Python authorization gateway and correlated request, decision, scope and
+  repository-result evidence.
+- Exposed snapshot-backed read tools for transaction listing/detail, spending
+  totals and period comparison; validated categories and preserved untrusted
+  memo overlays.
+- Removed the general repository vulnerability switch. Versioned the synthetic
+  fixture as v2 for a unique second-customer marker, without changing legacy
+  demo rows or existing stored snapshots.
+- Clarified that the selected lab assistant is the later assessment target and
+  a protected reference profile is never an agent-generated repair.
+
 ## T03 — Versioned synthetic bank snapshots
 
 - Added a fixed-date, 120-transaction CAD snapshot with exact contents, a

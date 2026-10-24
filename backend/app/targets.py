@@ -39,7 +39,7 @@ class ResolvedTarget:
                 input_schema=tool.get_input_schema().model_json_schema(),
                 model_controlled_arguments=tuple(sorted(tool.get_input_schema().model_fields)),
                 trusted_context_bindings=("RequestContext.authenticated_customer_id",)
-                if scoped
+                if tool.name in self.bank_profile.trusted_bound_tool_names
                 else (),
             )
             for tool in self.bank_profile.tools
@@ -74,6 +74,7 @@ def resolve_target(
     repository: BankRepository | None = None,
     tool_events: list[dict[str, Any]] | None = None,
     evidence: EvidenceRecorder | None = None,
+    run_id: str | None = None,
 ) -> ResolvedTarget:
     """No provider access, bank access, or tool execution.
 
@@ -102,6 +103,8 @@ def resolve_target(
         repository=repository,
         tool_events=tool_events,
         evidence=evidence,
+        context=context,
+        run_id=run_id,
     )
     resolved = ResolvedTarget(
         config=config,
