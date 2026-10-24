@@ -17,6 +17,46 @@ afterEach(() => {
 })
 
 describe('Banking workspace', () => {
+  it('explains a quota failure without presenting a banking answer', async () => {
+    const session = {
+      session_id: 'quota-session',
+      mode: 'live_execution',
+      customer_id: 'C-100',
+      target: { tools: [] },
+      turns: [
+        {
+          request_id: 'quota-request',
+          user_message: 'Latest transfer',
+          run_id: 'quota-run',
+          status: 'error',
+          result: {
+            status: 'error',
+            response: null,
+            reason_code: 'provider_quota_exhausted',
+          },
+        },
+      ],
+    }
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (path: string) => ({
+        ok: true,
+        json: async () =>
+          path === '/api/v2/sessions'
+            ? session
+            : { events: [], live_chat: { available: true } },
+      })),
+    )
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ChatWorkspace openDemo={() => {}} />
+      </QueryClientProvider>,
+    )
+    expect(
+      await screen.findByText(/OpenAI API credits or quota are exhausted/),
+    ).toBeTruthy()
+    expect(screen.queryByText('Actual bank answer')).toBeNull()
+  })
   it('explicitly starts live mode and labels the restored mode accurately', async () => {
     const session = {
       session_id: 'fixture',

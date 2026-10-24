@@ -6,6 +6,8 @@
 - Included fixed-date banking context in executable target manifests.
 - Kept dispatch evidence accurate on budget and wire-limit rejection.
 - Added a repeatable opt-in chat evaluation suite; prior-spend initialization gates paid runs.
+- Live smoke exposed exhausted API quota; added safe failure classification, clear UI guidance,
+  and nonzero evaluation exits. Live language-quality acceptance remains pending.
 
 ## T08 — Durable API budget controls
 

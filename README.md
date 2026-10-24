@@ -68,7 +68,7 @@ runs an explicitly limited offline model through the shared runtime and actual
 banking tools, with persisted conversations and observed execution events.
 The separate scripted campaigns demonstrate fixed attack/replay fixtures.
 Live conversation is implemented with explicit opt-in and budget admission;
-live acceptance testing awaits the confirmed starting spend. Tailored attack
+live acceptance testing is blocked by API quota after the starting spend was confirmed. Tailored attack
 generation remains upcoming work. See [T09](docs/T09_EVIDENCE.md).
 
 ## Architecture and technology

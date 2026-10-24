@@ -216,7 +216,7 @@ def run_assistant(
             return {
                 "model_calls": state["model_calls"] + 1,
                 "status": "error",
-                "reason_code": "model_call_failed",
+                "reason_code": getattr(model, "last_failure_reason", "model_call_failed"),
                 "prepared_results": [],
             }
         if not isinstance(response, AIMessage):

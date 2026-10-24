@@ -1,12 +1,36 @@
 # T09 — Live banking conversation
 
-Status: implemented; live acceptance trials pending initialization of prior spend.
+Status: implemented; live acceptance blocked by OpenAI API quota.
 
-Local verification: 160 backend tests and seven frontend tests pass. Ruff lint
+Local verification: 163 backend tests and eight frontend tests pass, plus Ruff lint
 and formatting, additive migration upgrade/schema check, and production frontend
 build pass. Independent read-only review found and verified fixes for manifest
-coverage, actual-dispatch evidence and consistent live run identity. No paid
-requests have been made for T09. The PR stays draft until live gates pass.
+coverage, actual-dispatch evidence and consistent live run identity.
+The PR stays draft until live gates pass.
+
+## Observed live attempt, October 24, 2026
+
+The user confirmed zero prior spend and the project ledger was initialized once
+with US$0. Three single-request smoke attempts reached OpenAI and each returned
+HTTP 429 before any tool execution or banking answer. The third classified the
+provider's “current quota” message as `provider_quota_exhausted`; the first two
+retained the generic rate-limit class. No human suite was run after this finding.
+
+Confirmed usage is US$0. The ledger conservatively retains US$0.012 (three
+US$0.004 reservations) because no provider token usage was returned. This is
+reserved exposure, not a claim that the provider billed that amount. The original
+failures remain persisted; the ledger was not reset or silently reconciled.
+
+Provider errors now distinguish exhausted quota from temporary rate limiting,
+show clear UI guidance, and retain only safe classifications/status rather than
+raw provider messages. The smoke command exits nonzero on failed/incomplete
+trials; no-oracle cases require manual review rather than receiving a free pass.
+
+Live typo handling, follow-ups and model-generated answers remain **unverified**.
+The observed gap is API availability. An API billing balance or project quota
+must be available before these trials can resume. Creating a new key is not an
+established remedy for this error. The local US$45 ceiling does not fund the
+OpenAI account. See [API billing](https://platform.openai.com/settings/organization/billing).
 
 Previously a keyword fixture selected tool arguments. The new live adapter lets
 GPT-6 Luna interpret wording, typos and follow-ups through the same runtime.

@@ -239,3 +239,39 @@ def test_budget_rejection_has_no_dispatched_context(monkeypatch, broker):
     assert result.status == "error"
     assert not any(e.name == "context.dispatched" for e in events)
     assert any(e.name == "context.request_prepared" for e in events)
+
+
+@pytest.mark.parametrize(
+    "message,code,expected",
+    [
+        (
+            "You exceeded your current quota. private-provider-detail",
+            None,
+            "provider_quota_exhausted",
+        ),
+        ("Billing unavailable", "insufficient_quota", "provider_quota_exhausted"),
+        ("Requests per minute limit reached", "rate_limit_exceeded", "provider_rate_limited"),
+    ],
+)
+def test_quota_and_transient_limits_are_distinct_and_sanitized(
+    monkeypatch, broker, message, code, expected
+):
+    requests = []
+
+    def handler(request):
+        requests.append(request)
+        return httpx.Response(
+            429, json={"error": {"message": message, "type": "rate_limit_error", "code": code}}
+        )
+
+    config, recorder, model = setup_model(monkeypatch, broker, handler)
+    result = execute(config, recorder, model)
+    assert result.status == "error"
+    assert result.reason_code == expected
+    assert len(requests) == 1
+    assert broker.summary()["reserved_micro_usd"] == 4000
+    from app.chat import run_events
+
+    serialized = json.dumps([e.model_dump(mode="json") for e in run_events(str(recorder.run_id))])
+    assert "private-provider-detail" not in serialized
+    assert "test-placeholder" not in serialized

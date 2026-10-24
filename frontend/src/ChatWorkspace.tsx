@@ -36,6 +36,24 @@ const eventTitles: Record<string, string> = {
   'assistant.output': 'Response delivered',
   'model.responded': 'Model proposed its next step',
 }
+const errorMessages: Record<string, string> = {
+  provider_quota_exhausted:
+    'OpenAI API credits or quota are exhausted. Check API billing before retrying.',
+  provider_rate_limited:
+    'OpenAI is limiting requests temporarily. Please wait before retrying.',
+  provider_authentication_failed: 'OpenAI rejected the server API credentials.',
+  provider_access_denied:
+    'The API project does not have permission for this request.',
+  provider_model_unavailable:
+    'The configured model is unavailable to this API project.',
+  provider_timeout:
+    'OpenAI took too long to respond. This turn did not complete.',
+  provider_connection_failed: 'The server could not reach OpenAI.',
+  provider_request_rejected:
+    'OpenAI rejected the request configuration. Inspect the run evidence.',
+  provider_not_dispatched:
+    'The request exceeded a local input limit or could not be prepared. No provider request was sent.',
+}
 
 export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
   const client = useQueryClient()
@@ -294,6 +312,7 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
                     <small>SENTINEL · {turn.status}</small>
                     <p>
                       {turn.result?.response?.display_text ??
+                        errorMessages[turn.result?.reason_code ?? ''] ??
                         `This turn ended as ${turn.status}. ${turn.result?.reason_code ?? 'Inspect available evidence.'}`}
                     </p>
                     <span>

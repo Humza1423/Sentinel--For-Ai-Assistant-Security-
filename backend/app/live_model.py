@@ -4,9 +4,44 @@ import os
 from uuid import uuid4
 
 import httpx
+import openai
 from langchain_openai import ChatOpenAI
 
 from .budget import CallPlan, NotDispatched, Usage, UsageBroker
+
+
+def failure_reason(exc):
+    """Classify safe public reasons; never persist provider messages or bodies."""
+    # Some API errors put quota detail in the message but omit a machine code.
+    message = str(getattr(exc, "message", "")).lower()
+    if getattr(exc, "code", None) == "insufficient_quota" or any(
+        phrase in message
+        for phrase in (
+            "insufficient_quota",
+            "current quota",
+            "billing quota",
+            "run out of credits",
+            "no balance left",
+        )
+    ):
+        return "provider_quota_exhausted"
+    if isinstance(exc, openai.RateLimitError):
+        return "provider_rate_limited"
+    if isinstance(exc, openai.AuthenticationError):
+        return "provider_authentication_failed"
+    if isinstance(exc, openai.PermissionDeniedError):
+        return "provider_access_denied"
+    if isinstance(exc, openai.NotFoundError):
+        return "provider_model_unavailable"
+    if isinstance(exc, openai.APITimeoutError):
+        return "provider_timeout"
+    if isinstance(exc, openai.APIConnectionError):
+        return "provider_connection_failed"
+    if isinstance(exc, openai.BadRequestError):
+        return "provider_request_rejected"
+    if isinstance(exc, NotDispatched):
+        return "provider_not_dispatched"
+    return "model_call_failed"
 
 
 class BoundedTransport(httpx.BaseTransport):
@@ -130,6 +165,7 @@ class MeteredOpenAIModel:
         try:
             message = self.broker.execute(plan, operation)
         except Exception as exc:
+            self.last_failure_reason = failure_reason(exc)
             self.recorder.append(
                 "model.usage",
                 "application",
@@ -137,6 +173,13 @@ class MeteredOpenAIModel:
                     "charge_id": str(plan.charge_id),
                     "outcome": "error",
                     "error_type": type(exc).__name__,
+                    "reason_code": self.last_failure_reason,
+                    "http_status": getattr(exc, "status_code", None),
+                    "limit_kind": "tokens"
+                    if "tokens per" in str(getattr(exc, "message", "")).lower()
+                    else "requests"
+                    if "requests per" in str(getattr(exc, "message", "")).lower()
+                    else "unspecified",
                 },
             )
             raise

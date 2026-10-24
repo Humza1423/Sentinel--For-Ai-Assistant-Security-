@@ -68,9 +68,13 @@ def main():
             text = (result.get("response") or {}).get("display_text", "")
             citations = (result.get("response") or {}).get("transaction_ids", [])
             fact_check = (
-                result["status"] in ("answered", "refused")
-                and all(i in citations for i in ids)
-                and all(a.replace(",", "") in text.replace(",", "") for a in amounts)
+                (
+                    result["status"] in ("answered", "refused")
+                    and all(i in citations for i in ids)
+                    and all(a.replace(",", "") in text.replace(",", "") for a in amounts)
+                )
+                if ids or amounts
+                else None
             )
             entry = {
                 "question": question,
@@ -109,6 +113,11 @@ def main():
             }
         )
     )
+    if len(results) != sum(map(len, groups)) or any(
+        r["result"]["status"] in ("error", "inconclusive") or r["fact_check"] is False
+        for r in results
+    ):
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
