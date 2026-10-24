@@ -1,5 +1,11 @@
 # Changelog
 
+## T07 — Banking chat and security inspector
+
+- Made chat the default workspace, with actual run events beside each answer.
+- Preserved the visual direction and explicitly labeled the legacy scripted demo.
+- Added same-origin API routing, retry handling and stale-response guards.
+
 ## T06 — Persistent banking conversations
 
 - Added server-owned synthetic sessions, strict chat endpoints and private event access.

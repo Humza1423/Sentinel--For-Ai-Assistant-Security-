@@ -1,5 +1,10 @@
 # Sentinel — Security Workbench for AI Agents
 
+The default local view is now banking chat with an observed-event inspector.
+It runs a clearly labeled offline fixture through real bank tools. Start the
+backend on port 8000 and Vite on port 5173; Vite proxies `/api` to the backend.
+The previous scripted campaigns remain available through “Scripted security demo.”
+
 [![CI](https://github.com/Humza1423/sentinel-agent-security-workbench/actions/workflows/ci.yml/badge.svg)](https://github.com/Humza1423/sentinel-agent-security-workbench/actions/workflows/ci.yml)
 
 **AI agents can read sensitive data, interpret untrusted content, and call real tools. Sentinel helps teams find out what an assistant actually did, why it did it, and whether a proposed fix holds up.**

@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useState, type ReactNode } from 'react'
+import ChatWorkspace from './ChatWorkspace'
 import {
   ArrowRight,
   CaretDown,
@@ -62,7 +63,7 @@ type Report = {
   model: string
   created_at: string
 }
-const API = 'http://localhost:8000/api'
+const API = '/api'
 
 async function getScenarios(): Promise<Scenario[]> {
   const response = await fetch(`${API}/scenarios`)
@@ -110,6 +111,11 @@ function Verdict({ run, scenarioId, phase }: { run?: Run; scenarioId: string; ph
 }
 
 export default function App() {
+  const [demo, setDemo] = useState(false)
+  return demo ? <><button className="back-to-chat" onClick={() => setDemo(false)}>← Back to banking chat</button><LegacyDemo/></> : <ChatWorkspace openDemo={() => setDemo(true)}/>
+}
+
+function LegacyDemo() {
   const { data: scenarios = [], isLoading, error } = useQuery({ queryKey: ['scenarios'], queryFn: getScenarios })
   const [selected, setSelected] = useState('memo-phishing')
   const mutation = useMutation({ mutationFn: runCampaign })

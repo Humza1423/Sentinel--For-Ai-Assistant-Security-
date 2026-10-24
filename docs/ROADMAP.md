@@ -16,7 +16,7 @@ Each approved ticket has its own tests, learning review, and PR to protected mai
 | T04 | Executable tool profiles and policy gateway | T03 | Complete |
 | T05 | Shared assistant subgraph with injectable fake model | T04 | Complete |
 | T06 | Session and bounded multi-turn chat API | T05 | Complete; phase review |
-| T07 | Banking chat beside a security inspector | T06 | Planned |
+| T07 | Banking chat beside a security inspector | T06 | Complete; phase review |
 | T08 | Atomic budget reservations and durable usage ledger | T01–T02 | Planned |
 | T09 | Live Responses adapter and explicit smoke check | T05, T08 | Planned |
 | T10 | Cross-customer scorer driven by observed events | T02, T05 | Planned |
@@ -128,6 +128,9 @@ and [ADR 0007](adr/0007-observed-assistant-graph.md). The comparison with
 session API; the current dashboard/campaign remain legacy scripted meanwhile.
 
 ## Non-negotiable proof rules
+
+T07 links chat answers to their persisted events. See [T07 learning note](T07_EVIDENCE.md)
+and [ADR 0009](adr/0009-chat-evidence-workspace.md).
 
 T06 adds persisted server-owned conversations and verified complete-turn history.
 See [T06 learning note](T06_EVIDENCE.md) and [ADR 0008](adr/0008-persisted-chat-turns.md).
