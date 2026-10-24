@@ -19,7 +19,7 @@ def test_snapshot_is_repeatable_and_persisted():
     second = SnapshotBankRepository().snapshot
     assert first.snapshot_id == second.snapshot_id
     assert first.digest == second.digest
-    assert first.dataset_version == "sentinel-bank-v1"
+    assert first.dataset_version == "sentinel-bank-v2"
     assert first.reference_date == date(2026, 10, 23)
     assert len(first.transactions) == 120
     assert all(

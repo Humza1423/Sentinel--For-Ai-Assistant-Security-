@@ -40,8 +40,8 @@ class RecordingBank(BankRepository):
         self.calls.append(("latest_for", authenticated_customer_id))
         return Transaction("T-own", authenticated_customer_id, "Books", 20, "2026-10-22", "hello")
 
-    def get_for(self, customer_id, authenticated_customer_id, *, vulnerable):
-        self.calls.append(("get_for", customer_id, authenticated_customer_id, vulnerable))
+    def _read_latest(self, customer_id):
+        self.calls.append(("lab_lookup", customer_id))
         return Transaction("T-other", customer_id, "Pharmacy", 10, "2026-10-22", BOB_MARKER)
 
 
@@ -112,7 +112,7 @@ def test_lab_manifest_and_tool_both_expose_the_vulnerable_lookup(context):
     assert not manifest.customer_access.repository_scope_enforced
     assert manifest.customer_access.enforcement_locations == ()
     assert BOB_MARKER in tool.invoke({"customer_id": BOB_ID})
-    assert repository.calls == [("get_for", BOB_ID, ALICE_ID, True)]
+    assert repository.calls == [("lab_lookup", BOB_ID)]
 
 
 def test_registered_defense_changes_real_tools_without_changing_instructions(context):

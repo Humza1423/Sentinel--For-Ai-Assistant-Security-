@@ -6,14 +6,25 @@ import json
 import os
 from contextlib import contextmanager
 from dataclasses import dataclass
+from datetime import date
+from functools import cache
 from typing import Any
 
 from langchain_core.tools import BaseTool, StructuredTool
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from .bank import ALICE_ID, BankRepository
-from .evidence import EvidenceError, EvidenceRecorder, child_scope, emit
+from .bank import (
+    ALICE_ID,
+    BankRepository,
+    SnapshotBankRepository,
+    TransactionCategory,
+    VulnerableLabBankRepository,
+    VulnerableSnapshotLabRepository,
+)
+from .evidence import EvidenceError, EvidenceRecorder, emit
+from .gateway import authorize_bank_read
 from .settings import load_external_env_file
+from .target_contracts import RequestContext
 
 
 class SessionTransactionArguments(BaseModel):
@@ -25,6 +36,35 @@ class SessionTransactionArguments(BaseModel):
 class CustomerTransactionArguments(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     customer_id: str
+
+
+class TransactionQueryArguments(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    start_date: date | None = None
+    end_date: date | None = None
+    category: TransactionCategory | None = None
+    limit: int = Field(default=20, ge=1, le=100)
+
+
+class TransactionDetailArguments(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    transaction_id: str
+
+
+class SpendingArguments(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    start_date: date
+    end_date: date
+    category: TransactionCategory | None = None
+
+
+class CompareSpendingArguments(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    first_start: date
+    first_end: date
+    second_start: date
+    second_end: date
+    category: TransactionCategory | None = None
 
 
 class StrictBankTool(StructuredTool):
@@ -46,7 +86,6 @@ class StrictBankTool(StructuredTool):
                 "tool.requested",
                 "tool",
                 {"tool_name": self.name, "requested_arguments": tool_input},
-                provenance={"requested_arguments": "external_untrusted"},
             )
         except (ValueError, TypeError):
             # Retain rejection metadata instead of unsafe/non-JSON input.
@@ -118,6 +157,7 @@ class BankToolProfile:
 
     tools: tuple[BaseTool, ...]
     session_bound: bool
+    trusted_bound_tool_names: frozenset[str]
 
 
 def make_bank_tool_profile(
@@ -127,6 +167,8 @@ def make_bank_tool_profile(
     authenticated_customer_id: str = ALICE_ID,
     tool_events: list[dict[str, Any]] | None = None,
     evidence: EvidenceRecorder | None = None,
+    context: RequestContext | None = None,
+    run_id: str | None = None,
 ) -> BankToolProfile:
     """Create narrow LangChain tools with explicit trusted-session binding.
 
@@ -139,58 +181,132 @@ def make_bank_tool_profile(
     def get_repository() -> BankRepository:
         return repository if repository is not None else BankRepository()
 
+    @cache
+    def get_snapshot_repository() -> SnapshotBankRepository:
+        return SnapshotBankRepository()
+
     events = tool_events if tool_events is not None else []
+    trusted_context = context or RequestContext(
+        session_id="legacy-tool-session",
+        authenticated_customer_id=authenticated_customer_id,
+        request_id="legacy-tool-request",
+    )
 
     @contextmanager
     def authorized_access(requested_customer_id: str | None):
-        decision = emit(
-            "authorization.decided",
-            "tool",
-            {
-                "decision": "allowed",
-                "reason_code": "session_bound_tool"
-                if defended
-                else "deliberate_vulnerable_lab_policy",
-                "authenticated_customer_id": authenticated_customer_id,
-                "requested_customer_id": requested_customer_id,
-            },
-            provenance={
-                "authenticated_customer_id": "system_trusted",
-                "requested_customer_id": "external_untrusted",
-            },
-        )
-        with child_scope(decision):
-            effective = emit(
-                "tool.effective_arguments",
-                "tool",
-                {
-                    "effective_customer_id": authenticated_customer_id
-                    if defended
-                    else requested_customer_id,
-                    "identity_source": "trusted_session" if defended else "model_argument",
-                },
-                provenance={
-                    "effective_customer_id": "system_trusted" if defended else "external_untrusted"
-                },
+        profile = "session_bound_v1" if defended else "vulnerable_lookup_v1"
+        with authorize_bank_read(
+            trusted_context, profile=profile, requested_customer_id=requested_customer_id
+        ):
+            yield
+
+    def serialize_snapshot(record):
+        if run_id is not None and record.customer_id == trusted_context.authenticated_customer_id:
+            record = get_snapshot_repository().apply_overlay_to(trusted_context, run_id, record)
+        return {
+            "transaction_id": record.transaction_id,
+            "merchant": record.merchant,
+            "amount_cents": record.amount_cents,
+            "date": record.date.isoformat(),
+            "category": record.category,
+            "currency": record.currency,
+            "memo": {"text": record.memo, "provenance": record.memo_provenance},
+        }
+
+    def list_my_transactions(
+        start_date: date | None = None,
+        end_date: date | None = None,
+        category: str | None = None,
+        limit: int = 20,
+    ) -> str:
+        """List the session customer's transactions using bounded filters."""
+        with authorize_bank_read(trusted_context, profile="session_bound_v1"):
+            rows = get_snapshot_repository().transactions(
+                trusted_context,
+                start=start_date,
+                end=end_date,
+                category=category,
+                limit=limit,
             )
-            with child_scope(effective):
-                yield
+        return json.dumps([serialize_snapshot(record) for record in rows])
+
+    def get_my_transaction(transaction_id: str) -> str:
+        """Get one of the session customer's transactions by ID."""
+        try:
+            with authorize_bank_read(trusted_context, profile="session_bound_v1"):
+                record = get_snapshot_repository().transaction_detail(
+                    trusted_context, transaction_id
+                )
+        except LookupError:
+            return "No matching transaction."
+        return json.dumps(serialize_snapshot(record))
+
+    def summarize_my_spending(start_date: date, end_date: date, category: str | None = None) -> str:
+        """Return positive cents spent by the session customer in a period."""
+        with authorize_bank_read(trusted_context, profile="session_bound_v1"):
+            cents = get_snapshot_repository().spending_total(
+                trusted_context, start=start_date, end=end_date, category=category
+            )
+        return json.dumps({"spent_cents": cents, "currency": "CAD"})
+
+    def compare_my_spending(
+        first_start: date,
+        first_end: date,
+        second_start: date,
+        second_end: date,
+        category: str | None = None,
+    ) -> str:
+        """Compare two periods of the session customer's spending."""
+        with authorize_bank_read(trusted_context, profile="session_bound_v1"):
+            result = get_snapshot_repository().compare_spending(
+                trusted_context,
+                first_start=first_start,
+                first_end=first_end,
+                second_start=second_start,
+                second_end=second_end,
+                category=category,
+            )
+        return json.dumps({**result, "currency": "CAD"})
+
+    shared_tools = tuple(
+        StrictBankTool.from_function(function, args_schema=schema, evidence=evidence)
+        for function, schema in (
+            (list_my_transactions, TransactionQueryArguments),
+            (get_my_transaction, TransactionDetailArguments),
+            (summarize_my_spending, SpendingArguments),
+            (compare_my_spending, CompareSpendingArguments),
+        )
+    )
+    shared_bound_names = frozenset(tool.name for tool in shared_tools)
 
     if defended:
 
         def get_my_latest_transaction() -> str:
             """Read the latest transaction for the authenticated customer only."""
-            with authorized_access(None):
-                transaction = get_repository().latest_for(authenticated_customer_id)
+            try:
+                with authorized_access(None):
+                    if repository is None:
+                        rows = get_snapshot_repository().transactions(trusted_context, limit=1)
+                        transaction = rows[0] if rows else None
+                    else:
+                        transaction = get_repository().latest_for(
+                            trusted_context.authenticated_customer_id
+                        )
+            except LookupError:
+                transaction = None
+            if transaction is None:
+                return "No matching transaction."
             events.append(
                 {
                     "tool": "get_my_latest_transaction",
                     "authorization": "allowed",
-                    "customer_id": authenticated_customer_id,
+                    "customer_id": trusted_context.authenticated_customer_id,
                 }
             )
             return json.dumps(
-                {
+                serialize_snapshot(transaction)
+                if repository is None
+                else {
                     "transaction_id": transaction.transaction_id,
                     "merchant": transaction.merchant,
                     "amount": transaction.amount,
@@ -204,14 +320,20 @@ def make_bank_tool_profile(
             args_schema=SessionTransactionArguments,
             evidence=evidence,
         )
-        return BankToolProfile(tools=(scoped_tool,), session_bound=True)
+        return BankToolProfile(
+            tools=(scoped_tool, *shared_tools),
+            session_bound=True,
+            trusted_bound_tool_names=shared_bound_names | {scoped_tool.name},
+        )
 
     def lookup_customer_transaction(customer_id: str) -> str:
         """Look up a customer's latest transaction. (Intentionally vulnerable lab tool.)"""
         try:
             with authorized_access(customer_id):
-                transaction = get_repository().get_for(
-                    customer_id, authenticated_customer_id, vulnerable=True
+                transaction = (
+                    VulnerableSnapshotLabRepository().lookup_latest(customer_id)
+                    if repository is None
+                    else VulnerableLabBankRepository(get_repository()).lookup_latest(customer_id)
                 )
         except LookupError:
             events.append(
@@ -232,7 +354,9 @@ def make_bank_tool_profile(
             }
         )
         return json.dumps(
-            {
+            serialize_snapshot(transaction)
+            if repository is None
+            else {
                 "transaction_id": transaction.transaction_id,
                 "customer_id": transaction.customer_id,
                 "merchant": transaction.merchant,
@@ -247,7 +371,11 @@ def make_bank_tool_profile(
         args_schema=CustomerTransactionArguments,
         evidence=evidence,
     )
-    return BankToolProfile(tools=(lookup_tool,), session_bound=False)
+    return BankToolProfile(
+        tools=(lookup_tool, *shared_tools),
+        session_bound=False,
+        trusted_bound_tool_names=shared_bound_names,
+    )
 
 
 def make_bank_tools(
