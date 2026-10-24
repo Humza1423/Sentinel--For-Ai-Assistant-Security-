@@ -1,5 +1,14 @@
 # Changelog
 
+## T03 — Versioned synthetic bank snapshots
+
+- Added a fixed-date, 120-transaction CAD snapshot with exact contents, a
+  canonical digest, integer-cent amounts, and database immutability guards.
+- Added customer-scoped transaction queries, spending totals, period comparisons,
+  and run-specific memo overlays that retain `external_untrusted` provenance.
+- Preserved the existing demo transaction table and campaign behavior. No model
+  calls or external bank integrations were added.
+
 ## T02 — Observed evidence recorder
 
 - Added typed observed events, canonical sanitized-payload digests, causal parents,
