@@ -1,6 +1,10 @@
 # T09 — Live banking conversation
 
-Status: implemented; live acceptance blocked by OpenAI API quota.
+Status: live integration works; acceptance remains open for the conversation-context gap.
+
+Billing was enabled and the live trials ran. See the
+[live evaluation and prioritized gaps](T09_LIVE_EVALUATION.md) for the results,
+cost and proposed next changes. The original quota failures below remain history.
 
 Local verification: 163 backend tests and eight frontend tests pass, plus Ruff lint
 and formatting, additive migration upgrade/schema check, and production frontend
@@ -26,10 +30,9 @@ show clear UI guidance, and retain only safe classifications/status rather than
 raw provider messages. The smoke command exits nonzero on failed/incomplete
 trials; no-oracle cases require manual review rather than receiving a free pass.
 
-Live typo handling, follow-ups and model-generated answers remain **unverified**.
-The observed gap is API availability. An API billing balance or project quota
-must be available before these trials can resume. Creating a new key is not an
-established remedy for this error. The local US$45 ceiling does not fund the
+These initial failures established no language-quality result. After billing
+was enabled, live typo and banking answers were observed; longer follow-ups
+exposed a local context-limit defect. The local US$45 ceiling does not fund the
 OpenAI account. See [API billing](https://platform.openai.com/settings/organization/billing).
 
 Previously a keyword fixture selected tool arguments. The new live adapter lets
