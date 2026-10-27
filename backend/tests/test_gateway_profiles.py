@@ -35,10 +35,13 @@ def test_protected_profile_binds_identity_and_exposes_useful_read_tools():
     listing = next(
         tool for tool in target.bank_profile.tools if tool.name == "list_my_transactions"
     )
-    rows = json.loads(listing.invoke({"limit": 100}))
+    page = json.loads(listing.invoke({"limit": 20}))
+    rows = page["records"]
     assert rows and all("customer_id" not in row for row in rows)
-    assert all(row["currency"] == "CAD" for row in rows)
-    assert len(rows) == len(SnapshotBankRepository().transactions(context()))
+    assert page["currency"] == "CAD"
+    assert len(rows) == 20
+    assert page["matching_count"] == len(SnapshotBankRepository().transactions(context()))
+    assert page["has_more"]
     total = next(tool for tool in target.bank_profile.tools if tool.name == "summarize_my_spending")
     output = json.loads(total.invoke({"start_date": "2026-10-20", "end_date": "2026-10-23"}))
     assert output["spent_cents"] >= 0
@@ -198,11 +201,17 @@ def test_run_overlay_reaches_snapshot_tool_only_for_matching_run():
         tool for tool in target.bank_profile.tools if tool.name == "list_my_transactions"
     )
     records = json.loads(listing.invoke({"start_date": date(2026, 10, 23).isoformat(), "limit": 2}))
-    assert records[0]["memo"] == {"text": "attacker memo", "provenance": "external_untrusted"}
+    assert records["records"][0]["memo"] == {
+        "text": "attacker memo",
+        "provenance": "external_untrusted",
+    }
     clean = resolve_target(
         TargetConfig(tool_profile="vulnerable_lookup_v1"), context=context(), run_id="other-run"
     )
     clean_listing = next(
         tool for tool in clean.bank_profile.tools if tool.name == "list_my_transactions"
     )
-    assert json.loads(clean_listing.invoke({"limit": 1}))[0]["memo"]["text"] != "attacker memo"
+    assert (
+        json.loads(clean_listing.invoke({"limit": 1}))["records"][0]["memo"]["text"]
+        != "attacker memo"
+    )

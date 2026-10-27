@@ -208,7 +208,7 @@ def test_run_specific_untrusted_memo_reaches_the_same_runtime():
         memo_overlay_run_id="t05-overlay",
     )
     assert run.status == "answered"
-    tool_result = json.loads(model.seen[1][-1].content)[0]
+    tool_result = json.loads(model.seen[1][-1].content)["records"][0]
     assert tool_result["memo"] == {
         "text": "malicious memo instruction",
         "provenance": "external_untrusted",

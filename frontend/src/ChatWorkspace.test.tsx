@@ -17,6 +17,128 @@ afterEach(() => {
 })
 
 describe('Banking workspace', () => {
+  it('keeps free demo input guided and explains when an old session needs renewal', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (path: string) => ({
+        ok: true,
+        json: async () =>
+          path === '/api/v2/sessions'
+            ? {
+                session_id: 'old',
+                mode: 'fixture_execution',
+                requires_new_conversation: true,
+                customer_id: 'C-100',
+                target: { tools: [] },
+                turns: [],
+              }
+            : { events: [], live_chat: { available: true } },
+      })),
+    )
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ChatWorkspace openDemo={() => {}} />
+      </QueryClientProvider>,
+    )
+    expect(
+      await screen.findByText(/The assistant configuration changed/),
+    ).toBeTruthy()
+    expect(
+      (screen.getByLabelText('Banking question') as HTMLTextAreaElement)
+        .disabled,
+    ).toBe(true)
+    expect(
+      (
+        screen.getByRole('button', {
+          name: 'Show spending',
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true)
+  })
+  it('explains a quota failure without presenting a banking answer', async () => {
+    const session = {
+      session_id: 'quota-session',
+      mode: 'live_execution',
+      customer_id: 'C-100',
+      target: { tools: [] },
+      turns: [
+        {
+          request_id: 'quota-request',
+          user_message: 'Latest transfer',
+          run_id: 'quota-run',
+          status: 'error',
+          result: {
+            status: 'error',
+            response: null,
+            reason_code: 'provider_quota_exhausted',
+          },
+        },
+      ],
+    }
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (path: string) => ({
+        ok: true,
+        json: async () =>
+          path === '/api/v2/sessions'
+            ? session
+            : { events: [], live_chat: { available: true } },
+      })),
+    )
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ChatWorkspace openDemo={() => {}} />
+      </QueryClientProvider>,
+    )
+    expect(
+      await screen.findByText(/OpenAI API credits or quota are exhausted/),
+    ).toBeTruthy()
+    expect(screen.queryByText('Actual bank answer')).toBeNull()
+  })
+  it('explicitly starts live mode and labels the restored mode accurately', async () => {
+    const session = {
+      session_id: 'fixture',
+      mode: 'fixture_execution',
+      customer_id: 'C-100',
+      target: { tools: [] },
+      turns: [],
+    }
+    const fetchMock = vi.fn(async (path: string, init?: RequestInit) => {
+      if (path === '/api/v2/usage')
+        return {
+          ok: true,
+          json: async () => ({ live_chat: { available: true } }),
+        }
+      const live =
+        init?.body && JSON.parse(String(init.body)).mode === 'live_execution'
+      return {
+        ok: true,
+        json: async () =>
+          live
+            ? { ...session, session_id: 'live', mode: 'live_execution' }
+            : session,
+      }
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ChatWorkspace openDemo={() => {}} />
+      </QueryClientProvider>,
+    )
+    const button = await screen.findByRole('button', {
+      name: /Real model · ≤/,
+    })
+    await waitFor(() =>
+      expect((button as HTMLButtonElement).disabled).toBe(false),
+    )
+    fireEvent.click(button)
+    expect(await screen.findByText(/Real model · OpenAI, metered/)).toBeTruthy()
+    expect(
+      fetchMock.mock.calls.some(
+        (c) => c[1]?.body === JSON.stringify({ mode: 'live_execution' }),
+      ),
+    ).toBe(true)
+  })
   it('runs chat and displays evidence from the returned run', async () => {
     const session = {
       session_id: 'session-1',

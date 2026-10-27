@@ -27,6 +27,10 @@ TransactionCategory = Literal[
 ]
 
 
+class InvalidBankQuery(ValueError):
+    """A recoverable argument error, not an authorization or storage failure."""
+
+
 @dataclass(frozen=True)
 class Transaction:
     transaction_id: str
@@ -309,9 +313,60 @@ class SnapshotBankRepository:
         minimum_cents: int | None = None,
         maximum_cents: int | None = None,
         limit: int = 100,
+        merchant: str | None = None,
+        min_amount_cents: int | None = None,
+        max_amount_cents: int | None = None,
+        exclude_categories: tuple[str, ...] = (),
+        offset: int = 0,
     ) -> tuple[SnapshotTransaction, ...]:
-        if limit < 1 or limit > 500 or (start and end and start > end):
-            raise ValueError("Invalid query bounds")
+        rows, _ = self.transaction_page(
+            context,
+            start=start,
+            end=end,
+            category=category,
+            minimum_cents=minimum_cents,
+            maximum_cents=maximum_cents,
+            limit=limit,
+            merchant=merchant,
+            min_amount_cents=min_amount_cents,
+            max_amount_cents=max_amount_cents,
+            exclude_categories=exclude_categories,
+            offset=offset,
+        )
+        return rows
+
+    def transaction_page(
+        self,
+        context: RequestContext,
+        *,
+        start: date | None = None,
+        end: date | None = None,
+        category: str | None = None,
+        minimum_cents: int | None = None,
+        maximum_cents: int | None = None,
+        limit: int = 10,
+        merchant: str | None = None,
+        min_amount_cents: int | None = None,
+        max_amount_cents: int | None = None,
+        exclude_categories: tuple[str, ...] = (),
+        offset: int = 0,
+    ) -> tuple[tuple[SnapshotTransaction, ...], int]:
+        if (
+            limit < 1
+            or limit > 500
+            or offset < 0
+            or (start and end and start > end)
+            or (min_amount_cents is not None and min_amount_cents < 0)
+            or (max_amount_cents is not None and max_amount_cents < 0)
+            or (
+                min_amount_cents is not None
+                and max_amount_cents is not None
+                and min_amount_cents > max_amount_cents
+            )
+        ):
+            raise InvalidBankQuery(
+                "Check date and amount bounds: start/minimum must not exceed end/maximum"
+            )
         # Establish customer scope before applying any caller-provided filter.
         rows = [
             item
@@ -326,9 +381,15 @@ class SnapshotBankRepository:
             and (category is None or item.category == category)
             and (minimum_cents is None or item.amount_cents >= minimum_cents)
             and (maximum_cents is None or item.amount_cents <= maximum_cents)
+            and (merchant is None or merchant.casefold() in item.merchant.casefold())
+            and (min_amount_cents is None or abs(item.amount_cents) >= min_amount_cents)
+            and (max_amount_cents is None or abs(item.amount_cents) <= max_amount_cents)
+            and item.category not in exclude_categories
         ]
         result = tuple(
-            sorted(rows, key=lambda item: (item.date, item.transaction_id), reverse=True)[:limit]
+            sorted(rows, key=lambda item: (item.date, item.transaction_id), reverse=True)[
+                offset : offset + limit
+            ]
         )
         emit(
             "repository.read_completed",
@@ -342,7 +403,7 @@ class SnapshotBankRepository:
             },
             provenance={"record_ids": "bank_record", "record_owners": "bank_record"},
         )
-        return result
+        return result, len(rows)
 
     def transaction_detail(
         self, context: RequestContext, transaction_id: str
@@ -389,9 +450,17 @@ class SnapshotBankRepository:
         return record
 
     def spending_total(
-        self, context: RequestContext, *, start: date, end: date, category: str | None = None
+        self,
+        context: RequestContext,
+        *,
+        start: date,
+        end: date,
+        category: str | None = None,
+        **filters,
     ) -> int:
-        rows = self.transactions(context, start=start, end=end, category=category, limit=500)
+        rows = self.transactions(
+            context, start=start, end=end, category=category, limit=500, **filters
+        )
         return sum(
             -item.amount_cents for item in rows if item.category not in {"income", "transfer"}
         )
@@ -405,9 +474,14 @@ class SnapshotBankRepository:
         second_start: date,
         second_end: date,
         category: str | None = None,
+        **filters,
     ) -> dict[str, int]:
-        first = self.spending_total(context, start=first_start, end=first_end, category=category)
-        second = self.spending_total(context, start=second_start, end=second_end, category=category)
+        first = self.spending_total(
+            context, start=first_start, end=first_end, category=category, **filters
+        )
+        second = self.spending_total(
+            context, start=second_start, end=second_end, category=category, **filters
+        )
         return {
             "first_period_cents": first,
             "second_period_cents": second,

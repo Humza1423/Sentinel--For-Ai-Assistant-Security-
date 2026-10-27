@@ -36,10 +36,40 @@ const eventTitles: Record<string, string> = {
   'assistant.output': 'Response delivered',
   'model.responded': 'Model proposed its next step',
 }
+const errorMessages: Record<string, string> = {
+  provider_quota_exhausted:
+    'OpenAI API credits or quota are exhausted. Check API billing before retrying.',
+  provider_rate_limited:
+    'OpenAI is limiting requests temporarily. Please wait before retrying.',
+  provider_authentication_failed: 'OpenAI rejected the server API credentials.',
+  provider_access_denied:
+    'The API project does not have permission for this request.',
+  provider_model_unavailable:
+    'The configured model is unavailable to this API project.',
+  provider_timeout:
+    'OpenAI took too long to respond. This turn did not complete.',
+  provider_connection_failed: 'The server could not reach OpenAI.',
+  provider_request_rejected:
+    'OpenAI rejected the request configuration. Inspect the run evidence.',
+  provider_not_dispatched:
+    'The request exceeded a local input limit or could not be prepared. No provider request was sent.',
+  context_limit:
+    'This request exceeds the conversation allowance. Try a narrower date range or start a new conversation.',
+  invalid_arguments_limit:
+    'The requested filters could not be corrected. Please rephrase the dates or amounts.',
+}
 
 export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
   const client = useQueryClient()
   const [message, setMessage] = useState('')
+  const availability = useQuery({
+    queryKey: ['live-availability'],
+    queryFn: () =>
+      api<{ live_chat: { available: boolean; reason: string | null } }>(
+        '/api/v2/usage',
+      ),
+    retry: false,
+  })
   const [selectedRun, setSelectedRun] = useState<string | null>(null)
   const [showTarget, setShowTarget] = useState(false)
   const [lastAttempt, setLastAttempt] = useState<{
@@ -55,7 +85,7 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
     refetchOnWindowFocus: false,
   })
   const reset = useMutation({
-    mutationFn: newSession,
+    mutationFn: (mode: string) => newSession(mode),
     onSuccess: (data) => {
       client.setQueryData(['chat-session'], data)
       setSelectedRun(null)
@@ -128,7 +158,7 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
   })
   const busy = send.isPending || reset.isPending || session.isFetching
   function submit(text: string) {
-    if (data && text.trim() && !busy) {
+    if (data && !data.requires_new_conversation && text.trim() && !busy) {
       const attempt =
         send.error &&
         lastAttempt?.text === text.trim() &&
@@ -154,7 +184,10 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
         </a>
         <div className="top-meta">
           <span className="status-dot" />
-          Synthetic bank · Offline fixture · $0 API cost
+          Synthetic bank ·{' '}
+          {data?.mode === 'live_execution'
+            ? 'Real model · OpenAI, metered'
+            : 'Guided demo · deterministic, $0'}
         </div>
       </header>
       <main className="workspace chat-workspace" id="chat">
@@ -179,6 +212,25 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
         </div>
         <div className="chat-toolbar">
           <span className="lab-label">SYNTHETIC LAB TARGET</span>
+          <button
+            className="export-button"
+            disabled={busy || data?.mode !== 'live_execution'}
+            aria-pressed={data?.mode !== 'live_execution'}
+            onClick={() => reset.mutate('fixture_execution')}
+          >
+            Guided demo · $0
+          </button>
+          <button
+            className="export-button"
+            disabled={busy || !availability.data?.live_chat?.available}
+            onClick={() => reset.mutate('live_execution')}
+            title={
+              availability.data?.live_chat?.reason ??
+              'Start a new metered OpenAI conversation'
+            }
+          >
+            Real model · ≤ US$0.024 / turn
+          </button>
           <span>
             {data?.customer_id ?? 'Connecting…'} · Customer identity managed by
             the server
@@ -220,15 +272,28 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
               <button
                 className="export-button"
                 disabled={busy}
-                onClick={() => reset.mutate()}
+                onClick={() => reset.mutate(data?.mode ?? 'fixture_execution')}
               >
                 New conversation
               </button>
             </div>
             <p className="fixture-notice">
-              Offline fixture · Real tools and bank records. Try the examples
-              below; flexible live conversation comes with the live adapter.
+              {data?.mode === 'live_execution'
+                ? 'Real model · Ask naturally, including follow-ups. Synthetic CAD records: June 26–October 23, 2026. This lab target includes a deliberately unsafe lookup for later assessments.'
+                : 'Guided demo · Choose an example below. Responses are deterministic, using real banking tools and records. Select Real model to type freely.'}
             </p>
+            {availability.data?.live_chat?.reason && (
+              <p className="fixture-notice">
+                Live chat unavailable: {availability.data.live_chat.reason}
+              </p>
+            )}
+            {reset.error && <p role="alert">{reset.error.message}</p>}
+            {data?.requires_new_conversation && (
+              <p role="alert">
+                The assistant configuration changed. Select New conversation to
+                use the updated tools; your previous conversation remains saved.
+              </p>
+            )}
             <div className="chat-transcript" aria-live="polite">
               {!data?.turns.length && (
                 <div className="chat-welcome">
@@ -256,6 +321,7 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
                     <small>SENTINEL · {turn.status}</small>
                     <p>
                       {turn.result?.response?.display_text ??
+                        errorMessages[turn.result?.reason_code ?? ''] ??
                         `This turn ended as ${turn.status}. ${turn.result?.reason_code ?? 'Inspect available evidence.'}`}
                     </p>
                     <span>
@@ -281,7 +347,7 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
               {examples.map((text) => (
                 <button
                   key={text}
-                  disabled={busy || !data}
+                  disabled={busy || !data || data.requires_new_conversation}
                   onClick={() => submit(text)}
                 >
                   {text}
@@ -302,9 +368,18 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
                 id="chat-message"
                 value={message}
                 onChange={(event) => setMessage(event.target.value)}
-                placeholder="Ask about your synthetic transactions…"
+                placeholder={
+                  data?.mode === 'live_execution'
+                    ? 'Ask about your synthetic transactions…'
+                    : 'Choose an example above, or select Real model to type freely.'
+                }
                 maxLength={4000}
-                disabled={busy || !data}
+                disabled={
+                  busy ||
+                  !data ||
+                  data.mode !== 'live_execution' ||
+                  data.requires_new_conversation
+                }
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' && !event.shiftKey) {
                     event.preventDefault()
@@ -314,7 +389,13 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
               />
               <button
                 className="run-button"
-                disabled={busy || !data || !message.trim()}
+                disabled={
+                  busy ||
+                  !data ||
+                  data.mode !== 'live_execution' ||
+                  data.requires_new_conversation ||
+                  !message.trim()
+                }
                 type="submit"
               >
                 Send <ArrowRight size={16} />

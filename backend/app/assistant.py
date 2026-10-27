@@ -36,12 +36,28 @@ class CustomerTransactionArguments(BaseModel):
     customer_id: str
 
 
-class TransactionQueryArguments(BaseModel):
+class BankingFilters(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    merchant: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=128,
+    )
+    min_amount_cents: int | None = Field(
+        default=None,
+        ge=0,
+        strict=True,
+    )
+    max_amount_cents: int | None = Field(default=None, ge=0, strict=True)
+    exclude_categories: tuple[TransactionCategory, ...] = ()
+
+
+class TransactionQueryArguments(BankingFilters):
     start_date: date | None = None
     end_date: date | None = None
     category: TransactionCategory | None = None
-    limit: int = Field(default=20, ge=1, le=100)
+    limit: int = Field(default=10, ge=1, le=20)
+    offset: int = Field(default=0, ge=0, le=500)
 
 
 class TransactionDetailArguments(BaseModel):
@@ -49,15 +65,13 @@ class TransactionDetailArguments(BaseModel):
     transaction_id: str
 
 
-class SpendingArguments(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+class SpendingArguments(BankingFilters):
     start_date: date
     end_date: date
     category: TransactionCategory | None = None
 
 
-class CompareSpendingArguments(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+class CompareSpendingArguments(BankingFilters):
     first_start: date
     first_end: date
     second_start: date
@@ -215,18 +229,40 @@ def make_bank_tool_profile(
         start_date: date | None = None,
         end_date: date | None = None,
         category: str | None = None,
-        limit: int = 20,
+        limit: int = 10,
+        offset: int = 0,
+        merchant: str | None = None,
+        min_amount_cents: int | None = None,
+        max_amount_cents: int | None = None,
+        exclude_categories: tuple[str, ...] = (),
     ) -> str:
         """List the session customer's transactions using bounded filters."""
         with authorize_bank_read(trusted_context, profile="session_bound_v1"):
-            rows = get_snapshot_repository().transactions(
+            rows, total = get_snapshot_repository().transaction_page(
                 trusted_context,
                 start=start_date,
                 end=end_date,
                 category=category,
                 limit=limit,
+                offset=offset,
+                merchant=merchant,
+                min_amount_cents=min_amount_cents,
+                max_amount_cents=max_amount_cents,
+                exclude_categories=exclude_categories,
             )
-        return json.dumps([serialize_snapshot(record) for record in rows])
+        records = [serialize_snapshot(record) for record in rows]
+        for record in records:
+            record.pop("currency")  # CAD is constant for the whole page.
+        return json.dumps(
+            {
+                "records": records,
+                "currency": "CAD",
+                "matching_count": total,
+                "offset": offset,
+                "has_more": offset + len(rows) < total,
+            },
+            separators=(",", ":"),
+        )
 
     def get_my_transaction(transaction_id: str) -> str:
         """Get one of the session customer's transactions by ID."""
@@ -239,13 +275,35 @@ def make_bank_tool_profile(
             return "No matching transaction."
         return json.dumps(serialize_snapshot(record))
 
-    def summarize_my_spending(start_date: date, end_date: date, category: str | None = None) -> str:
+    def summarize_my_spending(
+        start_date: date,
+        end_date: date,
+        category: str | None = None,
+        merchant: str | None = None,
+        min_amount_cents: int | None = None,
+        max_amount_cents: int | None = None,
+        exclude_categories: tuple[str, ...] = (),
+    ) -> str:
         """Return positive cents spent by the session customer in a period."""
         with authorize_bank_read(trusted_context, profile="session_bound_v1"):
             cents = get_snapshot_repository().spending_total(
-                trusted_context, start=start_date, end=end_date, category=category
+                trusted_context,
+                start=start_date,
+                end=end_date,
+                category=category,
+                merchant=merchant,
+                min_amount_cents=min_amount_cents,
+                max_amount_cents=max_amount_cents,
+                exclude_categories=exclude_categories,
             )
-        return json.dumps({"spent_cents": cents, "currency": "CAD"})
+        return json.dumps(
+            {
+                "spent_cents": cents,
+                "currency": "CAD",
+                "start_date": start_date.isoformat(),
+                "end_date": end_date.isoformat(),
+            }
+        )
 
     def compare_my_spending(
         first_start: date,
@@ -253,6 +311,10 @@ def make_bank_tool_profile(
         second_start: date,
         second_end: date,
         category: str | None = None,
+        merchant: str | None = None,
+        min_amount_cents: int | None = None,
+        max_amount_cents: int | None = None,
+        exclude_categories: tuple[str, ...] = (),
     ) -> str:
         """Compare two periods of the session customer's spending."""
         with authorize_bank_read(trusted_context, profile="session_bound_v1"):
@@ -263,8 +325,21 @@ def make_bank_tool_profile(
                 second_start=second_start,
                 second_end=second_end,
                 category=category,
+                merchant=merchant,
+                min_amount_cents=min_amount_cents,
+                max_amount_cents=max_amount_cents,
+                exclude_categories=exclude_categories,
             )
-        return json.dumps({**result, "currency": "CAD"})
+        return json.dumps(
+            {
+                **result,
+                "currency": "CAD",
+                "first_start": first_start.isoformat(),
+                "first_end": first_end.isoformat(),
+                "second_start": second_start.isoformat(),
+                "second_end": second_end.isoformat(),
+            }
+        )
 
     shared_tools = tuple(
         StrictBankTool.from_function(function, args_schema=schema, evidence=evidence)

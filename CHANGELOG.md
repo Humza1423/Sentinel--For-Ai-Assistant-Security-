@@ -1,5 +1,25 @@
 # Changelog
 
+## T09 — Metered live banking conversation
+
+- Added the brokered LangChain Responses adapter and explicit live/fixture sessions.
+- Included fixed-date banking context in executable target manifests.
+- Kept dispatch evidence accurate on budget and wire-limit rejection.
+- Added a repeatable opt-in chat evaluation suite; prior-spend initialization gates paid runs.
+- Initial live smoke exposed exhausted API quota; added safe failure classification,
+  clear UI guidance and nonzero evaluation exits before funded language trials.
+- After billing was enabled, recorded live banking/typo trials and browser evidence.
+  Documented the follow-up context-limit defect and date-label discrepancy before further fixes.
+- Fixed conversation sizing using model-visible payloads, trimming complete older
+  turns without dropping tool pairs or losing their stored evidence.
+- Added shared merchant/absolute-amount/excluded-category filters, bounded pages,
+  exact dataset dates and one safe tool-argument correction attempt.
+- Separated guided examples from real free-text chat; stale target sessions now
+  request a new conversation without losing existing history.
+- Completed the live acceptance/correction pass, including a successful ten-turn
+  conversation and scope refusals. Retained the initial timeout and behavioral
+  gaps alongside the successful 13-case targeted retest.
+
 ## T08 — Durable API budget controls
 
 - Added atomic project/assessment admission, versioned pricing and usage settlement.

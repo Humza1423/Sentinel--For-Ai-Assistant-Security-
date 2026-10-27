@@ -7,6 +7,8 @@ export type Run = {
   dropped_turns: number
 }
 export type Session = {
+  requires_new_conversation?: boolean
+  mode?: 'fixture_execution' | 'live_execution'
   session_id: string
   customer_id: string
   target: {
@@ -49,10 +51,10 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   }
   return response.json()
 }
-export async function newSession(): Promise<Session> {
+export async function newSession(mode = 'fixture_execution'): Promise<Session> {
   const session = await api<Session>('/api/v2/sessions', {
     method: 'POST',
-    body: '{}',
+    body: JSON.stringify({ mode }),
   })
   localStorage.setItem('sentinel-session', session.session_id)
   return session

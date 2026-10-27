@@ -1,7 +1,8 @@
 # Sentinel — Security Workbench for AI Agents
 
 The default local view is now banking chat with an observed-event inspector.
-It runs a clearly labeled offline fixture through real bank tools. Start the
+Choose **Guided demo** for free, fixed examples or **Real model** for metered
+natural-language banking questions through the same real bank tools. Start the
 backend on port 8000 and Vite on port 5173; Vite proxies `/api` to the backend.
 The previous scripted campaigns remain available through “Scripted security demo.”
 
@@ -67,7 +68,13 @@ The full workflow above describes Sentinel's product vision. Today, the default 
 runs an explicitly limited offline model through the shared runtime and actual
 banking tools, with persisted conversations and observed execution events.
 The separate scripted campaigns demonstrate fixed attack/replay fixtures.
-Live conversation and tailored attack generation remain upcoming work.
+Live conversation supports typos, bounded follow-ups, merchant/amount filters,
+category exclusions and period comparisons. Questions outside banking are
+declined; missing dates or unavailable balances/actions receive clarification
+rather than invented data. See the [T09 release evidence](docs/T09_EVIDENCE.md),
+including earlier failures and the successful correction/retest. Tailored attack
+generation remains upcoming work. The selected lab target deliberately retains
+its unsafe lookup; this is not a production banking assistant.
 
 ## Architecture and technology
 
@@ -115,9 +122,12 @@ They do not read or modify your local bank database. Full quality commands are i
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
 No API key is required for the local experience. Do not commit keys or `.env*`
-files. SQLite persists conversations, evidence and budget accounting. The former
-unmetered live smoke path is disabled; T09 will integrate the usage broker with
-Responses. Adding a key alone does not enable provider calls.
+files. SQLite persists conversations, evidence and budget accounting. Select a
+private key file using `OPENAI_ENV_FILE` before starting the backend. Initialize
+accounting below, then click “Real model.” Guided demo uses example buttons, not
+free-text interpretation. New conversations retain their
+selected mode. Adding a key alone does not enable provider calls. Live requests
+use GPT-6 Luna through the usage broker, with a US$0.024 maximum per turn.
 
 Before live use, check previous Sentinel API spend and initialize accounting once:
 `cd backend && uv run python -m app.budget --prior-spend-usd AMOUNT`.
@@ -128,7 +138,15 @@ track unrelated applications using the same key. See [T08 notes](docs/T08_EVIDEN
 
 ## Evidence and limits
 
-Scripted attack outcomes are controlled fixtures, not observed model failures. The paired replay uses the same synthetic bank snapshot, customer identity, scenario, and request; the registered defense is the intended changed variable. Live campaign nondeterminism, provider usage traces, real authentication, arbitrary target integrations, and custom attack planning are outside the current demo. Never connect this workbench to real customer data or production tools.
+Scripted attack outcomes are controlled fixtures, not observed model failures.
+Their paired replay uses the same synthetic inputs with a registered defense.
+Live chat records actual provider/tool evidence, but generated attacks and live
+campaign repair/replay remain later tickets. Chat keeps at most five complete
+prior turns, trimming older ones to fit a conservative input bound; it is not
+unlimited memory. Model prose is not a guarantee of accuracy or prompt-injection
+resistance. Balances, money movement, live exchange rates, production
+authentication and external targets are unsupported. Never connect real customer
+data or production tools.
 
 ## Target inspection
 
