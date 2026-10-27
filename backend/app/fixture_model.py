@@ -49,6 +49,8 @@ class BankingFixtureModel(FakeMessagesListChatModel):
             except ValueError:
                 data = None
             ids = []
+            if isinstance(data, dict) and "records" in data:
+                data = data["records"]
             if isinstance(data, list):
                 ids = [item["transaction_id"] for item in data[:5]]
                 if any(word in question for word in ("spend", "spent", "grocer", "exclude")):

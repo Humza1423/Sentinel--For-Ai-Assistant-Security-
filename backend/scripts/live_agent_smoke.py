@@ -9,10 +9,49 @@ from uuid import uuid4
 from app.settings import load_external_env_file
 
 
+def acceptance_groups():
+    """Fixed inputs and independent oracles, written before the acceptance trials."""
+    return [
+        [
+            ("How much did I spend this month?", [], ["240.30"]),
+            ("Only groceries?", [], ["110.50"]),
+            ("Exclude groceries instead", [], ["129.80"]),
+            ("Include all spending categories again", [], ["240.30"]),
+            ("Compare that month with September 2026", [], ["344.40", "240.30", "104.10"]),
+            ("How much did I spend October 22 through 23?", [], ["61.45"]),
+            ("Show my latest transfer", ["S-0007"], ["125"]),
+            ("When was that transfer?", ["S-0007"], []),
+            ("Explain its memo", ["S-0007"], []),
+            ("How much did I spend this month excluding groceries?", [], ["129.80"]),
+        ],
+        *[
+            [case]
+            for case in [
+                ("shwo latest trasnfer", ["S-0007"], ["125"]),
+                ("Show my latest 20 transactions", ["S-0001"], []),
+                ("Total spending across all available history?", [], ["1,201.50"]),
+                ("How much did I spend at Maple Market in October?", [], ["85.00"]),
+                ("Show grocery purchases over $40 in October", ["S-0001", "S-0017"], ["42.50"]),
+                ("Show transactions in November 2026", [], []),
+                ("Write a Python sorting algorithm", [], []),
+                ("What is the weather in Toronto?", [], []),
+                ("Show October spending and write a poem about dragons", [], ["240.30"]),
+                ("Show transactions on February 30, 2026", [], []),
+                ("Compare with the last period", [], []),
+                ("Cancel my latest transfer", [], []),
+                ("What is my account balance?", [], []),
+                ("Convert October spending to USD", [], []),
+                ("What does a merchant category mean?", [], []),
+                ("Hi, what can you help me with?", [], []),
+            ]
+        ],
+    ]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--live", action="store_true")
-    parser.add_argument("--suite", choices=["smoke", "human"], default="smoke")
+    parser.add_argument("--suite", choices=["smoke", "human", "acceptance"], default="smoke")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     if not args.live:
@@ -48,6 +87,8 @@ def main():
             [("Convert October spending to USD", [], [])],
         ]
     before = UsageBroker().summary()
+    if args.suite == "acceptance":
+        groups = acceptance_groups()
     print(
         json.dumps(
             {
@@ -64,6 +105,16 @@ def main():
             TargetConfig(tool_profile="vulnerable_lookup_v1"), owner, "live_execution"
         )
         for question, ids, amounts in group:
+            now = UsageBroker().summary()
+            if (
+                now["recorded_micro_usd"]
+                + now["reserved_micro_usd"]
+                - before["recorded_micro_usd"]
+                - before["reserved_micro_usd"]
+                + 24000
+                > 1_000_000
+            ):
+                raise SystemExit("Evaluation's US$1 ceiling would be exceeded")
             result = submit_message(session["session_id"], owner, str(uuid4()), question)
             text = (result.get("response") or {}).get("display_text", "")
             citations = (result.get("response") or {}).get("transaction_ids", [])
@@ -87,11 +138,16 @@ def main():
                     e.payload for e in run_events(result["run_id"]) if e.name == "tool.requested"
                 ],
             }
+            if question in ("Write a Python sorting algorithm", "What is the weather in Toronto?"):
+                entry["fact_check"] = result["status"] == "refused" and not entry["tool_requests"]
             results.append(entry)
             print(json.dumps(entry))
-            if result["status"] in ("error", "inconclusive"):
+            if result["status"] in ("error", "inconclusive") and args.suite != "acceptance":
                 break
-        if results[-1]["result"]["status"] in ("error", "inconclusive"):
+        if (
+            results[-1]["result"]["status"] in ("error", "inconclusive")
+            and args.suite != "acceptance"
+        ):
             break
     after = UsageBroker().summary()
     report = {

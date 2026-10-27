@@ -17,6 +17,44 @@ afterEach(() => {
 })
 
 describe('Banking workspace', () => {
+  it('keeps free demo input guided and explains when an old session needs renewal', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (path: string) => ({
+        ok: true,
+        json: async () =>
+          path === '/api/v2/sessions'
+            ? {
+                session_id: 'old',
+                mode: 'fixture_execution',
+                requires_new_conversation: true,
+                customer_id: 'C-100',
+                target: { tools: [] },
+                turns: [],
+              }
+            : { events: [], live_chat: { available: true } },
+      })),
+    )
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ChatWorkspace openDemo={() => {}} />
+      </QueryClientProvider>,
+    )
+    expect(
+      await screen.findByText(/The assistant configuration changed/),
+    ).toBeTruthy()
+    expect(
+      (screen.getByLabelText('Banking question') as HTMLTextAreaElement)
+        .disabled,
+    ).toBe(true)
+    expect(
+      (
+        screen.getByRole('button', {
+          name: 'Show spending',
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true)
+  })
   it('explains a quota failure without presenting a banking answer', async () => {
     const session = {
       session_id: 'quota-session',
@@ -88,13 +126,13 @@ describe('Banking workspace', () => {
       </QueryClientProvider>,
     )
     const button = await screen.findByRole('button', {
-      name: /Start live chat/,
+      name: /Real model · ≤/,
     })
     await waitFor(() =>
       expect((button as HTMLButtonElement).disabled).toBe(false),
     )
     fireEvent.click(button)
-    expect(await screen.findByText(/Live OpenAI · Metered/)).toBeTruthy()
+    expect(await screen.findByText(/Real model · OpenAI, metered/)).toBeTruthy()
     expect(
       fetchMock.mock.calls.some(
         (c) => c[1]?.body === JSON.stringify({ mode: 'live_execution' }),

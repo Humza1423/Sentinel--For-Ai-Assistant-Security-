@@ -53,6 +53,10 @@ const errorMessages: Record<string, string> = {
     'OpenAI rejected the request configuration. Inspect the run evidence.',
   provider_not_dispatched:
     'The request exceeded a local input limit or could not be prepared. No provider request was sent.',
+  context_limit:
+    'This request exceeds the conversation allowance. Try a narrower date range or start a new conversation.',
+  invalid_arguments_limit:
+    'The requested filters could not be corrected. Please rephrase the dates or amounts.',
 }
 
 export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
@@ -154,7 +158,7 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
   })
   const busy = send.isPending || reset.isPending || session.isFetching
   function submit(text: string) {
-    if (data && text.trim() && !busy) {
+    if (data && !data.requires_new_conversation && text.trim() && !busy) {
       const attempt =
         send.error &&
         lastAttempt?.text === text.trim() &&
@@ -182,8 +186,8 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
           <span className="status-dot" />
           Synthetic bank ·{' '}
           {data?.mode === 'live_execution'
-            ? 'Live OpenAI · Metered'
-            : 'Offline fixture · $0 API cost'}
+            ? 'Real model · OpenAI, metered'
+            : 'Guided demo · deterministic, $0'}
         </div>
       </header>
       <main className="workspace chat-workspace" id="chat">
@@ -210,6 +214,14 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
           <span className="lab-label">SYNTHETIC LAB TARGET</span>
           <button
             className="export-button"
+            disabled={busy || data?.mode !== 'live_execution'}
+            aria-pressed={data?.mode !== 'live_execution'}
+            onClick={() => reset.mutate('fixture_execution')}
+          >
+            Guided demo · $0
+          </button>
+          <button
+            className="export-button"
             disabled={busy || !availability.data?.live_chat?.available}
             onClick={() => reset.mutate('live_execution')}
             title={
@@ -217,7 +229,7 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
               'Start a new metered OpenAI conversation'
             }
           >
-            Start live chat · ≤ US$0.024 / turn
+            Real model · ≤ US$0.024 / turn
           </button>
           <span>
             {data?.customer_id ?? 'Connecting…'} · Customer identity managed by
@@ -267,24 +279,21 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
             </div>
             <p className="fixture-notice">
               {data?.mode === 'live_execution'
-                ? 'Live OpenAI · Ask naturally, including follow-ups. Answers use the synthetic bank dated October 23, 2026. This lab profile intentionally exposes an unsafe lookup for later assessments.'
-                : 'Offline fixture · Limited keyword examples with real tools. Start live chat for natural language and typos.'}
+                ? 'Real model · Ask naturally, including follow-ups. Synthetic CAD records: June 26–October 23, 2026. This lab target includes a deliberately unsafe lookup for later assessments.'
+                : 'Guided demo · Choose an example below. Responses are deterministic, using real banking tools and records. Select Real model to type freely.'}
             </p>
-            {data?.mode === 'live_execution' && (
-              <button
-                className="export-button"
-                disabled={busy}
-                onClick={() => reset.mutate('fixture_execution')}
-              >
-                Switch to free fixture
-              </button>
-            )}
             {availability.data?.live_chat?.reason && (
               <p className="fixture-notice">
                 Live chat unavailable: {availability.data.live_chat.reason}
               </p>
             )}
             {reset.error && <p role="alert">{reset.error.message}</p>}
+            {data?.requires_new_conversation && (
+              <p role="alert">
+                The assistant configuration changed. Select New conversation to
+                use the updated tools; your previous conversation remains saved.
+              </p>
+            )}
             <div className="chat-transcript" aria-live="polite">
               {!data?.turns.length && (
                 <div className="chat-welcome">
@@ -338,7 +347,7 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
               {examples.map((text) => (
                 <button
                   key={text}
-                  disabled={busy || !data}
+                  disabled={busy || !data || data.requires_new_conversation}
                   onClick={() => submit(text)}
                 >
                   {text}
@@ -359,9 +368,18 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
                 id="chat-message"
                 value={message}
                 onChange={(event) => setMessage(event.target.value)}
-                placeholder="Ask about your synthetic transactions…"
+                placeholder={
+                  data?.mode === 'live_execution'
+                    ? 'Ask about your synthetic transactions…'
+                    : 'Choose an example above, or select Real model to type freely.'
+                }
                 maxLength={4000}
-                disabled={busy || !data}
+                disabled={
+                  busy ||
+                  !data ||
+                  data.mode !== 'live_execution' ||
+                  data.requires_new_conversation
+                }
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' && !event.shiftKey) {
                     event.preventDefault()
@@ -371,7 +389,13 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
               />
               <button
                 className="run-button"
-                disabled={busy || !data || !message.trim()}
+                disabled={
+                  busy ||
+                  !data ||
+                  data.mode !== 'live_execution' ||
+                  data.requires_new_conversation ||
+                  !message.trim()
+                }
                 type="submit"
               >
                 Send <ArrowRight size={16} />

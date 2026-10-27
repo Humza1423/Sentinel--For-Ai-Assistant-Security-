@@ -18,7 +18,7 @@ Each approved ticket has its own tests, learning review, and PR to protected mai
 | T06 | Session and bounded multi-turn chat API | T05 | Complete |
 | T07 | Banking chat beside a security inspector | T06 | Complete |
 | T08 | Atomic budget reservations and durable usage ledger | T01–T02 | Complete; phase review |
-| T09 | Live Responses adapter and explicit smoke check | T05, T08 | Live trials run; conversation-context gap keeps PR draft |
+| T09 | Live Responses adapter and explicit smoke check | T05, T08 | Complete; live chat acceptance and correction pass recorded |
 | T10 | Cross-customer scorer driven by observed events | T02, T05 | Planned |
 | T11 | Manifest-based surface analysis and bounded attacker | T01, T08–T10 | Planned |
 | T12 | Clean paired execution against a candidate revision | T11, T13, T22 | Planned |
@@ -138,7 +138,11 @@ and [ADR 0009](adr/0009-chat-evidence-workspace.md).
 
 T06 adds persisted server-owned conversations and verified complete-turn history.
 See [T06 learning note](T06_EVIDENCE.md) and [ADR 0008](adr/0008-persisted-chat-turns.md).
-The HTTP chat remains an explicitly limited offline fixture until T09.
+The original T06 HTTP chat was an explicitly limited offline fixture. T09 adds
+opt-in live interpretation through the same runtime, bounded complete-turn
+memory and shared query filters. See [T09 evidence](T09_EVIDENCE.md) and
+[ADR 0012](adr/0012-bounded-chat-completion.md). The initial live failures remain
+documented beside the successful targeted retest. T10 is next, not started.
 
 - Target definitions come from executable tools and enforced configuration.
 - Trusted code controls authentication, authorization, and verdicts.

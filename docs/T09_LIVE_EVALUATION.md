@@ -1,5 +1,8 @@
 # T09 live chat evaluation — reviewed October 25, 2026
 
+Historical first-pass gap report. These observations are preserved unchanged;
+subsequent corrections and release results are in [T09 evidence](T09_EVIDENCE.md).
+
 Billing is working. GPT-6 Luna answered through the shared runtime, actual bank
 tools, gateway and evidence recorder. No application fixes were made after these
 trials: this is the gap report requested before the next changes.
@@ -92,5 +95,6 @@ code review passed previously; the additional evidence-review agent was
 unavailable, so this result review was performed directly against stored traces
 and fixture facts.
 
-T09 remains open and PR #15 stays draft until the conversation gap is corrected
-and reverified. T10 has not started.
+At this checkpoint T09 remained open and PR #15 stayed draft pending correction.
+The later release checkpoint is recorded separately in [T09 evidence](T09_EVIDENCE.md).
+T10 was not part of either chatbot pass.

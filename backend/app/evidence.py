@@ -44,6 +44,7 @@ EventName = Literal[
     "action.delivered",
     "tool.completed",
     "tool.failed",
+    "tool.correction_requested",
     "scorer.verdict",
     "investigation.proposed",
     "defense.proposed",

@@ -208,6 +208,39 @@ def test_cache_and_reasoning_normalization():
     assert usage.reasoning_tokens == 5
 
 
+def test_maximum_page_and_responses_reasoning_fit_wire_allowance(monkeypatch, broker):
+    calls = []
+
+    def handler(request):
+        calls.append(json.loads(request.content))
+        assert len(request.content) + 512 <= 12000
+        if len(calls) == 1:
+            return response(
+                [
+                    {
+                        "id": "rs_page",
+                        "type": "reasoning",
+                        "summary": [],
+                        "encrypted_content": "x" * 500,
+                    },
+                    {
+                        "id": "fc_page",
+                        "type": "function_call",
+                        "call_id": "page",
+                        "name": "list_my_transactions",
+                        "arguments": '{"limit":20}',
+                    },
+                ]
+            )
+        assert "S-0001" in request.content.decode()
+        return response(final("Here is a page of transactions; more are available."))
+
+    config, recorder, model = setup_model(monkeypatch, broker, handler)
+    run = execute(config, recorder, model, "Show my latest 20 transactions")
+    assert run.status == "answered"
+    assert len(calls) == 2
+
+
 def test_live_recorder_and_config_cannot_be_mislabeled(monkeypatch, broker):
     config, _recorder, model = setup_model(monkeypatch, broker, lambda r: None)
     with pytest.raises(ValueError, match="execution recorder"):

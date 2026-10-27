@@ -199,6 +199,13 @@ class MeteredOpenAIModel:
         # round-trip. Runtime extracts the text only at final validation.
         return message
 
+    def input_size(self, messages):
+        """Size the actual pinned LangChain payload, excluding stored audit metadata."""
+        from .evidence import canonical_json
+
+        payload = self.model._get_request_payload(messages, **self.bound.kwargs)
+        return len(canonical_json(payload).encode()) + 512
+
     def close(self):
         self.client.close()
 

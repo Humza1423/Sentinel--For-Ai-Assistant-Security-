@@ -14,6 +14,7 @@ from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from typing_extensions import TypedDict
 
+from .bank import InvalidBankQuery
 from .evidence import EvidenceError, EvidenceRecorder, canonical_json, read_events
 from .runtime_context import assistant_instructions
 from .target_contracts import RequestContext, TargetConfig
@@ -31,13 +32,26 @@ class VerifiedHistory:
     messages: tuple[BaseMessage, ...] = ()
     tool_results: tuple[dict, ...] = ()
     record_ids: tuple[str, ...] = ()
+    turns: tuple[VerifiedHistory, ...] = ()
 
 
 def message_units(messages, tool_schemas) -> int:
     # UTF-8 bytes plus framing is a conservative offline input bound. T09's
     # provider adapter must also enforce its model-specific token accounting.
     return (
-        len(canonical_json([m.model_dump(mode="json") for m in messages]).encode())
+        len(
+            canonical_json(
+                [
+                    {
+                        "type": m.type,
+                        "content": m.content,
+                        **({"tool_calls": m.tool_calls} if isinstance(m, AIMessage) else {}),
+                        **({"tool_call_id": m.tool_call_id} if isinstance(m, ToolMessage) else {}),
+                    }
+                    for m in messages
+                ]
+            ).encode()
+        )
         + len(canonical_json(tool_schemas).encode())
         + 256
     )
@@ -60,6 +74,7 @@ class AssistantRun(BaseModel):
     reason_code: str | None = None
     model_calls: int = 0
     tool_calls: int = 0
+    retained_turns: int = 0
     turn_messages: tuple[BaseMessage, ...] = Field(default=(), exclude=True)
 
 
@@ -75,6 +90,9 @@ class AssistantState(TypedDict):
     status: str | None
     response: AssistantResponse | None
     reason_code: str | None
+    history_turns: list[VerifiedHistory]
+    current_record_ids: list[str]
+    corrections: int
 
 
 def _message_digest(message: BaseMessage) -> str:
@@ -170,9 +188,33 @@ def run_assistant(
         if state["model_calls"] >= MAX_MODEL_CALLS:
             return {"status": "inconclusive", "reason_code": "model_call_limit"}
 
-        messages = state["messages"]
-        if message_units(messages, schemas) > MAX_INPUT_UNITS:
-            return {"status": "inconclusive", "reason_code": "context_limit"}
+        groups = list(state["history_turns"])
+        current = state["messages"][1 + sum(len(g.messages) for g in groups) :]
+        system = state["messages"][0]
+
+        def assembled():
+            return [system, *[m for g in groups for m in g.messages], *current]
+
+        def size():
+            return (
+                bound_model.input_size(assembled())
+                if isinstance(model, MeteredOpenAIModel)
+                else message_units(assembled(), schemas)
+            )
+
+        while groups and size() + 2048 > MAX_INPUT_UNITS:
+            groups.pop(0)
+        messages = assembled()
+        history_update = {
+            "history_turns": groups,
+            "messages": messages,
+            "seen_record_ids": [
+                *state["current_record_ids"],
+                *[r for g in groups for r in g.record_ids],
+            ],
+        }
+        if size() > MAX_INPUT_UNITS:
+            return {**history_update, "status": "inconclusive", "reason_code": "context_limit"}
         context_event = recorder.append(
             "context.request_prepared"
             if isinstance(model, MeteredOpenAIModel)
@@ -182,7 +224,7 @@ def run_assistant(
                 "message_count": len(messages),
                 "message_digests": [_message_digest(message) for message in messages],
                 "tool_results": [
-                    *(verified_history.tool_results if verified_history else ()),
+                    *[r for g in groups for r in g.tool_results],
                     *state["prepared_results"],
                 ],
             },
@@ -214,6 +256,7 @@ def run_assistant(
                 parent_event_id=call_event.event_id,
             )
             return {
+                **history_update,
                 "model_calls": state["model_calls"] + 1,
                 "status": "error",
                 "reason_code": getattr(model, "last_failure_reason", "model_call_failed"),
@@ -248,6 +291,7 @@ def run_assistant(
             parent_event_id=call_event.event_id,
         )
         update = {
+            **history_update,
             "messages": [*messages, response],
             "model_calls": state["model_calls"] + 1,
             "prepared_results": [],
@@ -288,7 +332,10 @@ def run_assistant(
             parsed = AssistantResponse.model_validate_json(response.text)
         except ValidationError:
             return {**update, "status": "inconclusive", "reason_code": "malformed_final_response"}
-        if any(record_id not in state["seen_record_ids"] for record_id in parsed.transaction_ids):
+        if any(
+            record_id not in history_update["seen_record_ids"]
+            for record_id in parsed.transaction_ids
+        ):
             return {**update, "status": "inconclusive", "reason_code": "unsupported_citation"}
         return {
             **update,
@@ -300,7 +347,9 @@ def run_assistant(
         messages = list(state["messages"])
         prepared_results = []
         seen_record_ids = list(state["seen_record_ids"])
+        current_record_ids = list(state["current_record_ids"])
         count = state["tool_calls"]
+        corrections = state["corrections"]
         for call in state["pending_calls"]:
             name, call_id, args = call["name"], call["id"], call["args"]
             tool = tools.get(name)
@@ -320,6 +369,51 @@ def run_assistant(
                     )
             except EvidenceError:
                 raise
+            except (ValidationError, InvalidBankQuery) as exc:
+                if isinstance(exc, ValidationError) and any(
+                    e["type"] == "extra_forbidden" for e in exc.errors()
+                ):
+                    return {
+                        "status": "error",
+                        "reason_code": "tool_execution_failed",
+                        "tool_calls": count + 1,
+                    }
+                if corrections >= 1:
+                    return {
+                        "status": "error",
+                        "reason_code": "invalid_arguments_limit",
+                        "tool_calls": count + 1,
+                    }
+                corrections += 1
+                fields = (
+                    sorted({".".join(str(p) for p in e["loc"]) for e in exc.errors()})
+                    if isinstance(exc, ValidationError)
+                    else ["date_range", "amount_range"]
+                )
+                recorder.append(
+                    "tool.correction_requested",
+                    "application",
+                    {
+                        "tool_name": name,
+                        "tool_call_id": call_id,
+                        "fields": fields,
+                        "reason_code": "invalid_arguments",
+                        "correction_number": corrections,
+                    },
+                    parent_event_id=state["last_model_event_id"],
+                )
+                result = ToolMessage(
+                    content=canonical_json(
+                        {
+                            "error": "invalid_arguments",
+                            "fields": fields,
+                            "guidance": "Correct the listed arguments using the tool schema. Dates must exist and start/minimum must not exceed end/maximum. One correction is allowed.",
+                        }
+                    ),
+                    tool_call_id=call_id,
+                    name=name,
+                    status="error",
+                )
             except Exception as exc:  # noqa: BLE001 - tool failures end the run honestly
                 recorder.append(
                     "tool.failed",
@@ -353,6 +447,9 @@ def run_assistant(
             seen_record_ids.extend(
                 record_id for event in reads for record_id in event.payload.get("record_ids", [])
             )
+            current_record_ids.extend(
+                record_id for event in reads for record_id in event.payload.get("record_ids", [])
+            )
             prepared = recorder.append(
                 "context.prepared",
                 "application",
@@ -382,6 +479,8 @@ def run_assistant(
             "pending_calls": [],
             "prepared_results": prepared_results,
             "seen_record_ids": seen_record_ids,
+            "current_record_ids": current_record_ids,
+            "corrections": corrections,
         }
 
     def route_after_model(state: AssistantState) -> str:
@@ -412,6 +511,11 @@ def run_assistant(
         "status": None,
         "response": None,
         "reason_code": None,
+        "history_turns": list(verified_history.turns)
+        if verified_history and verified_history.turns
+        else ([verified_history or VerifiedHistory(messages=history)] if history else []),
+        "current_record_ids": [],
+        "corrections": 0,
     }
     final = graph.compile().invoke(initial)
     status = final["status"] or "inconclusive"
@@ -426,7 +530,12 @@ def run_assistant(
             "transaction_ids": list(response.transaction_ids) if response else [],
             "turn_digest": hashlib.sha256(
                 canonical_json(
-                    [m.model_dump(mode="json") for m in final["messages"][1 + len(history) :]]
+                    [
+                        m.model_dump(mode="json")
+                        for m in final["messages"][
+                            1 + sum(len(g.messages) for g in final["history_turns"]) :
+                        ]
+                    ]
                 ).encode()
             ).hexdigest(),
         },
@@ -440,7 +549,10 @@ def run_assistant(
         reason_code=final["reason_code"],
         model_calls=final["model_calls"],
         tool_calls=final["tool_calls"],
-        turn_messages=tuple(final["messages"][1 + len(history) :])
+        retained_turns=len(final["history_turns"]),
+        turn_messages=tuple(
+            final["messages"][1 + sum(len(g.messages) for g in final["history_turns"]) :]
+        )
         if status in ("answered", "refused")
         else (),
     )

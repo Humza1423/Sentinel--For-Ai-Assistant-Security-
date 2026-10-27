@@ -7,6 +7,7 @@ export type Run = {
   dropped_turns: number
 }
 export type Session = {
+  requires_new_conversation?: boolean
   mode?: 'fixture_execution' | 'live_execution'
   session_id: string
   customer_id: string
