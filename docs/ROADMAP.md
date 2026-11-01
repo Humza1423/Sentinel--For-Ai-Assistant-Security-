@@ -19,7 +19,7 @@ Each approved ticket has its own tests, learning review, and PR to protected mai
 | T07 | Banking chat beside a security inspector | T06 | Complete |
 | T08 | Atomic budget reservations and durable usage ledger | T01–T02 | Complete; phase review |
 | T09 | Live Responses adapter and explicit smoke check | T05, T08 | Complete; live chat acceptance and correction pass recorded |
-| T10 | Cross-customer scorer driven by observed events | T02, T05 | Planned |
+| T10 | Cross-customer scorer driven by observed events | T02, T05 | Complete; linked run evidence, no model verdicts |
 | T11 | Manifest-based surface analysis and bounded attacker | T01, T08–T10 | Planned |
 | T12 | Clean paired execution against a candidate revision | T11, T13, T22 | Planned |
 | T13 | Direct control probes and actual benign-agent queries | T03, T05, T10 | Planned |
@@ -142,7 +142,19 @@ The original T06 HTTP chat was an explicitly limited offline fixture. T09 adds
 opt-in live interpretation through the same runtime, bounded complete-turn
 memory and shared query filters. See [T09 evidence](T09_EVIDENCE.md) and
 [ADR 0012](adr/0012-bounded-chat-completion.md). The initial live failures remain
-documented beside the successful targeted retest. T10 is next, not started.
+documented beside the successful targeted retest. T10 is described below.
+
+## T10 — observed cross-customer scoring
+
+T10 scores the selected assistant's persisted run evidence, with distinct findings
+for a foreign read, a matching tool result actually dispatched to the model, and
+an attributed protected-marker disclosure. A schema denial can be `blocked`;
+an untested/refusing model is `no_violation_observed`; failed or incomplete
+traces retain their own result. Each finding lists real event IDs. See the
+[T10 learning note](T10_EVIDENCE.md) and
+[ADR 0013](adr/0013-observed-cross-customer-scoring.md). This is a Python
+detector for T11 and later campaign/replay; the legacy scripted campaign remains
+labeled separately. T11 follows after T10's reviewed merge.
 
 - Target definitions come from executable tools and enforced configuration.
 - Trusted code controls authentication, authorization, and verdicts.

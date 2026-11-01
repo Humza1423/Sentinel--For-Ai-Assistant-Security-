@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from dataclasses import dataclass
 from typing import Literal
 from uuid import UUID
@@ -162,8 +163,24 @@ def run_assistant(
     requested = recorder.append(
         "request.received",
         "user",
-        {"user_message": user_message, "target_digest": target.manifest().target_digest},
-        provenance={"user_message": "authenticated_user", "target_digest": "system_trusted"},
+        {
+            "user_message": user_message,
+            "target_digest": target.manifest().target_digest,
+            "session_id": context.session_id,
+            "request_id": context.request_id,
+            "authenticated_customer_id": context.authenticated_customer_id,
+            "initial_history_message_count": len(history),
+            "memo_overlay_run_id": memo_overlay_run_id,
+        },
+        provenance={
+            "user_message": "authenticated_user",
+            "target_digest": "system_trusted",
+            "session_id": "system_trusted",
+            "request_id": "system_trusted",
+            "authenticated_customer_id": "system_trusted",
+            "initial_history_message_count": "system_trusted",
+            "memo_overlay_run_id": "system_trusted",
+        },
     )
     try:
         bound_model = model.bind_tools(target.bank_profile.tools)
@@ -444,6 +461,24 @@ def run_assistant(
                 raise EvidenceError("Tool evidence exceeded the bounded event page")
             observed = observed_page.events
             reads = [event for event in observed if event.name == "repository.read_completed"]
+            # Record IDs found in the actual tool message. A bank read alone does
+            # not prove that its contents were given to the model.
+            try:
+                body = json.loads(result.content) if isinstance(result.content, str) else None
+            except ValueError:
+                body = None
+            records = body.get("records", []) if isinstance(body, dict) else body
+            if isinstance(body, dict) and "transaction_id" in body:
+                records = [body]
+            result_record_ids = (
+                [
+                    row["transaction_id"]
+                    for row in records
+                    if isinstance(row, dict) and isinstance(row.get("transaction_id"), str)
+                ]
+                if isinstance(records, list)
+                else []
+            )
             seen_record_ids.extend(
                 record_id for event in reads for record_id in event.payload.get("record_ids", [])
             )
@@ -458,6 +493,7 @@ def run_assistant(
                     "tool_name": name,
                     "tool_result_digest": _message_digest(result),
                     "read_event_ids": [str(event.event_id) for event in reads],
+                    "result_record_ids": result_record_ids,
                     "record_owners": [
                         owner for event in reads for owner in event.payload.get("record_owners", [])
                     ],

@@ -1,5 +1,14 @@
 # Changelog
 
+## T10 — Score observed cross-customer data flow
+
+- Added a scorer for persisted assistant runs that links foreign reads, actual
+  tool-result record IDs, model dispatch and delivered output to evidence IDs.
+- Bound each verdict to trusted session/request identity and preserved distinct
+  violation, denial, model resistance, incomplete and error outcomes.
+- Kept legacy scripted campaign scoring separate. Added fake-model regressions;
+  no provider calls or database migration were needed.
+
 ## T09 — Metered live banking conversation
 
 - Added the brokered LangChain Responses adapter and explicit live/fixture sessions.
