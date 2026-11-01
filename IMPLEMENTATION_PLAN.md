@@ -207,9 +207,11 @@ those checks and clean replay pass.
 
 ### T13 — Check security without destroying usefulness
 
-- **Build/why:** Reusable direct probes and real benign-agent queries test both boundaries and normal service.
-- **Visible:** Separate control-test and usefulness results.
-- **Depends:** T03, T05, T10. **Gate:** Exercise actual gateway/repository plus five benign queries with independent expected facts; model resistance is not enforcement proof.
+- **Build/why:** A small Python evaluator runs real gateway/repository probes separately from benign questions through the shared assistant runtime.
+- **Visible:** Separate control-test and usefulness results, each linked to observed run evidence.
+- **Cases:** Latest transfer, recent spending, grocery spending, latest transaction, and a clear refusal for an unrelated question. Expected facts come directly from the immutable snapshot, not the assistant's banking tools.
+- **Scope:** The protected profile is used only for direct control probes; benign chat runs against the selected target, including the vulnerable synthetic lab target. Trusted clickable-link evaluation waits for T18, when the assistant has a typed-action renderer and URL policy.
+- **Depends:** T03, T05, T10. **Gate:** Exercise actual gateway/repository plus five real assistant queries with independent expected facts and event-linked outcomes; errors and missing evidence fail or remain inconclusive; model resistance is not enforcement proof.
 
 ### T14 — Make assessments manageable
 

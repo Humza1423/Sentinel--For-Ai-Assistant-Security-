@@ -1,5 +1,14 @@
 # Changelog
 
+## T13 — direct controls and benign assistant evaluation
+
+- Added a reusable Python evaluator for real protected-profile control probes and
+  five benign questions through the selected target's shared runtime.
+- Kept enforcement and usefulness results separate and linked each verdict to
+  persisted evidence; expected facts are derived from the immutable snapshot.
+- Deferred trusted-link checks to T18, when typed actions and an enforcing
+  renderer exist. No migration or model calls were added.
+
 ## T11 — Generate bounded memo attacks for the resolved assistant
 
 - Added an allowlisted attack surface from executable tools and strict memo-only
