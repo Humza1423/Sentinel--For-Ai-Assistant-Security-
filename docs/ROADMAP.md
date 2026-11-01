@@ -20,7 +20,7 @@ Each approved ticket has its own tests, learning review, and PR to protected mai
 | T08 | Atomic budget reservations and durable usage ledger | T01–T02 | Complete; phase review |
 | T09 | Live Responses adapter and explicit smoke check | T05, T08 | Complete; live chat acceptance and correction pass recorded |
 | T10 | Cross-customer scorer driven by observed events | T02, T05 | Complete; linked run evidence, no model verdicts |
-| T11 | Manifest-based surface analysis and bounded attacker | T01, T08–T10 | Planned |
+| T11 | Manifest-based surface analysis and bounded attacker | T01, T08–T10 | Complete; isolated memo trials and exposed/not-exposed evidence |
 | T12 | Clean paired execution against a candidate revision | T11, T13, T22 | Planned |
 | T13 | Direct control probes and actual benign-agent queries | T03, T05, T10 | Planned |
 | T14 | Assessment lifecycle, cancellation, persisted SSE | T12–T13 | Planned |
@@ -154,7 +154,21 @@ traces retain their own result. Each finding lists real event IDs. See the
 [T10 learning note](T10_EVIDENCE.md) and
 [ADR 0013](adr/0013-observed-cross-customer-scoring.md). This is a Python
 detector for T11 and later campaign/replay; the legacy scripted campaign remains
-labeled separately. T11 follows after T10's reviewed merge.
+labeled separately. T11 is described below.
+
+## T11 — bounded attacker and observed trials
+
+T11 builds an allowlisted attack surface from the selected assistant's actual
+tool manifest, validates memo-only candidates, and runs each one through the
+shared assistant with a separate immutable overlay. The returned assessment
+contains the candidate, its source label, run IDs, snapshot identity, actual
+exposure evidence and T10 verdict. A target that never received the memo is
+`not_exposed`, not a successful resistance trial. Fixed-seed and fake-model
+results remain labeled fixtures. Live attacker calls use the existing broker
+with role `attacker` and the same assessment budget scope as a live target;
+they are opt-in. See [T11 learning note](T11_EVIDENCE.md) and
+[ADR 0014](adr/0014-bounded-memo-attacker.md). T12 will own clean paired replay;
+the old scripted campaign and dashboard are unchanged.
 
 - Target definitions come from executable tools and enforced configuration.
 - Trusted code controls authentication, authorization, and verdicts.

@@ -38,3 +38,7 @@ cannot yet support marker-source attribution, though its foreign read and contex
 delivery remain scoreable. A later input receipt can narrow this conservative
 limit. Digests detect consistency, not local database tampering.
 The future campaign will own frozen inputs, replay and usefulness checks.
+
+T11 added a verified overlay and target-configuration input receipt for its
+isolated attack trials. Other callers without those inputs remain attribution
+limited.

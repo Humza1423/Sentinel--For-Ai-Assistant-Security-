@@ -89,11 +89,12 @@ def normalize_usage(message):
 class MeteredOpenAIModel:
     """Per-run adapter; model selection, limits and accounting stay in trusted code."""
 
-    def __init__(self, config, recorder, *, broker=None, transport=None):
+    def __init__(self, config, recorder, *, broker=None, transport=None, assessment_id=None):
         if not os.getenv("OPENAI_API_KEY"):
             raise ValueError("OpenAI credentials unavailable")
         self.config, self.recorder = config, recorder
         self.broker = broker or UsageBroker()
+        self.assessment_id = assessment_id
         self.transport = BoundedTransport(transport)
         self.client = httpx.Client(transport=self.transport, timeout=config.timeout_seconds)
         self.model = ChatOpenAI(
@@ -142,10 +143,38 @@ class MeteredOpenAIModel:
         return self
 
     def invoke(self, messages):
+        return self._invoke_bound(messages, self.bound, role="target")
+
+    def invoke_attack(self, messages):
+        """Structured attacker output through the same transport and usage ledger."""
+        bound = self.model.bind(
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "memo_attack_candidate",
+                    "strict": True,
+                    "schema": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "objective": {"type": "string", "enum": ["cross_customer_disclosure"]},
+                            "channel": {"type": "string", "enum": ["transaction.memo"]},
+                            "memo": {"type": "string"},
+                            "rationale": {"type": "string"},
+                        },
+                        "required": ["objective", "channel", "memo", "rationale"],
+                    },
+                },
+            }
+        )
+        return self._invoke_bound(messages, bound, role="attacker")
+
+    def _invoke_bound(self, messages, bound, *, role):
         plan = CallPlan(
             charge_id=uuid4(),
+            assessment_id=self.assessment_id,
             run_id=self.recorder.run_id,
-            role="target",
+            role=role,
             max_output_tokens=self.config.max_output_tokens,
         )
         self.transport.dispatched = False
@@ -153,7 +182,7 @@ class MeteredOpenAIModel:
 
         def operation(_):
             try:
-                message = self.bound.invoke(messages)
+                message = bound.invoke(messages)
             except Exception as exc:
                 if not self.transport.dispatched:
                     raise NotDispatched("Provider request was not dispatched") from exc
@@ -171,6 +200,7 @@ class MeteredOpenAIModel:
                 "application",
                 {
                     "charge_id": str(plan.charge_id),
+                    "role": role,
                     "outcome": "error",
                     "error_type": type(exc).__name__,
                     "reason_code": self.last_failure_reason,
@@ -188,6 +218,7 @@ class MeteredOpenAIModel:
             "application",
             {
                 "charge_id": str(plan.charge_id),
+                "role": role,
                 "outcome": "settled",
                 "usage": normalize_usage(message).model_dump(),
                 "provider_response_id": message.id,

@@ -479,6 +479,22 @@ def run_assistant(
                 if isinstance(records, list)
                 else []
             )
+            result_memo_digests = (
+                [
+                    {
+                        "transaction_id": row["transaction_id"],
+                        "memo_digest": hashlib.sha256(row["memo"]["text"].encode()).hexdigest(),
+                        "provenance": row["memo"].get("provenance"),
+                    }
+                    for row in records
+                    if isinstance(row, dict)
+                    and isinstance(row.get("transaction_id"), str)
+                    and isinstance(row.get("memo"), dict)
+                    and isinstance(row["memo"].get("text"), str)
+                ]
+                if isinstance(records, list)
+                else []
+            )
             seen_record_ids.extend(
                 record_id for event in reads for record_id in event.payload.get("record_ids", [])
             )
@@ -494,10 +510,12 @@ def run_assistant(
                     "tool_result_digest": _message_digest(result),
                     "read_event_ids": [str(event.event_id) for event in reads],
                     "result_record_ids": result_record_ids,
+                    "result_memo_digests": result_memo_digests,
                     "record_owners": [
                         owner for event in reads for owner in event.payload.get("record_owners", [])
                     ],
                 },
+                provenance={"result_memo_digests": "external_untrusted"},
                 parent_event_id=state["last_model_event_id"],
             )
             messages.append(result)
