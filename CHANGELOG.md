@@ -1,5 +1,16 @@
 # Changelog
 
+## T11 — Generate bounded memo attacks for the resolved assistant
+
+- Added an allowlisted attack surface from executable tools and strict memo-only
+  candidates, with fixed seeds and brokered model generation kept distinct.
+- Ran each candidate against a fresh shared-assistant execution and isolated
+  memo overlay, then scored observed events. A trial is `not_exposed` unless the
+  exact memo reached a model dispatch.
+- Linked marker attribution to the persisted overlay, target configuration and
+  model context. Added role-scoped attacker usage and mock-wire tests; no paid
+  provider calls or database migration were needed.
+
 ## T10 — Score observed cross-customer data flow
 
 - Added a scorer for persisted assistant runs that links foreign reads, actual

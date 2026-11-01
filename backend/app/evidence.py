@@ -23,6 +23,12 @@ from .store import ObservedEventRow, ObservedRunRow, Session
 
 EventName = Literal[
     "request.received",
+    "attack.surface_analyzed",
+    "attack.candidate_proposed",
+    "attack.candidate_rejected",
+    "attack.overlay_applied",
+    "attack.exposure_checked",
+    "attack.feedback_prepared",
     "target.resolved",
     "model.requested",
     "model.responded",
