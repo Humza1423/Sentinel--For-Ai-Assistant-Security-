@@ -22,7 +22,7 @@ Each approved ticket has its own tests, learning review, and PR to protected mai
 | T10 | Cross-customer scorer driven by observed events | T02, T05 | Complete; linked run evidence, no model verdicts |
 | T11 | Manifest-based surface analysis and bounded attacker | T01, T08–T10 | Complete; isolated memo trials and exposed/not-exposed evidence |
 | T12 | Clean paired execution against a candidate revision | T11, T13, T22 | Planned |
-| T13 | Direct control probes and actual benign-agent queries | T03, T05, T10 | Planned |
+| T13 | Direct control probes and actual benign-agent queries | T03, T05, T10 | Complete; controls and usefulness evaluated separately |
 | T14 | Assessment lifecycle, cancellation, persisted SSE | T12–T13 | Planned |
 | T15 | Investigation, diff and evidence proof workspace | T07, T14, T21–T22, T25 | Planned |
 | T16 | Repeated trials, regression export, guided demo | T15, T26 | Planned |
@@ -169,6 +169,17 @@ with role `attacker` and the same assessment budget scope as a live target;
 they are opt-in. See [T11 learning note](T11_EVIDENCE.md) and
 [ADR 0014](adr/0014-bounded-memo-attacker.md). T12 will own clean paired replay;
 the old scripted campaign and dashboard are unchanged.
+
+## T13 — direct controls and benign assistant evaluation
+
+T13 adds a small Python evaluation service. It tests the session-bound reference
+tools directly, then asks five ordinary questions through the selected target's
+shared assistant runtime. Control tests and usefulness results remain separate;
+each result links to observed event IDs and labels fixture execution. Expected
+banking facts are derived from the immutable snapshot. Trusted clickable-link
+checks wait for T18 because typed actions and an enforcing renderer do not exist
+yet. No model calls or database migration were added. See [T13 learning note](T13_EVIDENCE.md)
+and [ADR 0015](adr/0015-reusable-bank-evaluation.md).
 
 - Target definitions come from executable tools and enforced configuration.
 - Trusted code controls authentication, authorization, and verdicts.
