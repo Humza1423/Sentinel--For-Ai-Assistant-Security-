@@ -1,100 +1,140 @@
-# Sentinel — Security Workbench for AI Agents
+# Sentinel
 
-The default local view is now banking chat with an observed-event inspector.
-Choose **Guided demo** for free, fixed examples or **Real model** for metered
-natural-language banking questions through the same real bank tools. Start the
-backend on port 8000 and Vite on port 5173; Vite proxies `/api` to the backend.
-The previous scripted campaigns remain available through “Scripted security demo.”
+### Find the failure. Trace the cause. Prove the repair.
 
-[![CI](https://github.com/Humza1423/sentinel-agent-security-workbench/actions/workflows/ci.yml/badge.svg)](https://github.com/Humza1423/sentinel-agent-security-workbench/actions/workflows/ci.yml)
+A banking assistant can answer a question correctly and still cross a security
+boundary on the way there. A transaction memo can contain instructions aimed at
+the model. If the assistant follows them into an unsafe tool call, another
+customer's information could reach its context or response. Reading the final
+answer alone can miss the leak.
 
-**AI agents can read sensitive data, interpret untrusted content, and call real tools. Sentinel helps teams find out what an assistant actually did, why it did it, and whether a proposed fix holds up.**
+**Sentinel is a security workbench for engineers building assistants that use
+tools and sensitive data.** It starts with a synthetic banking assistant:
+inspect its real capabilities, generate bounded adversarial memo tests, run
+them through the same assistant used in chat, and trace the resulting calls
+and data access. Trusted code evaluates the evidence.
 
-Sentinel is a finance-first security workbench for tool-using AI assistants. Its end-state workflow combines target inspection, adversarial testing, runtime evidence, investigation, user-approved code repair, and independent verification. The same approach is designed to extend to other assistants that can access sensitive information or take consequential actions.
+The larger goal is to close the repair loop: investigate the failure, propose
+a fix, patch an isolated copy on the engineer's request, and replay the attack
+alongside ordinary banking tasks before accepting the change.
 
-## The problem is already real
+[Follow an attack](#follow-one-attack) · [Current capabilities](#what-works-today) ·
+[Architecture](#architecture-and-technology) · [Repair roadmap](#closing-the-repair-loop) ·
+[Run locally](#run-locally)
 
-- **Security failure:** Researchers disclosed [EchoLeak (CVE-2025-32711)](https://nvd.nist.gov/vuln/detail/cve-2025-32711), an indirect prompt-injection vulnerability in Microsoft 365 Copilot that could allow unauthorized information disclosure. It was fixed before public disclosure; researchers reported no in-the-wild exploitation. [Technical case study](https://ojs.aaai.org/index.php/AAAI-SS/article/download/36899/39037/40976)
-- **Customer and financial impact:** In [Moffatt v. Air Canada](https://www.canlii.org/en/bc/bccrt/doc/2024/2024bccrt149/2024bccrt149.html), British Columbia’s Civil Resolution Tribunal found Air Canada responsible after its chatbot gave inaccurate bereavement-fare guidance that a customer relied on. This was an accuracy and accountability case, not a prompt-injection incident.
+[![CI](https://github.com/Humza1423/Sentinel--For-Ai-Assistant-Security-/actions/workflows/ci.yml/badge.svg)](https://github.com/Humza1423/Sentinel--For-Ai-Assistant-Security-/actions/workflows/ci.yml)
 
-These are different failures, but they point to the same engineering need: evaluate assistants through their actual behavior and tool access, keep authority in trusted application code, and retain evidence people can inspect.
+## Follow one attack
 
-## How Sentinel works
+Imagine asking about your latest transfer. The returned memo tries to redirect
+the assistant toward another customer's record.
 
-The product is designed as a closed-loop security workflow. LangGraph coordinates its state, steps, and agent handoffs. The banking assistant uses LangChain agents and typed tools to interact with the synthetic bank.
+1. **Inspect the target.** Derive the attack surface from executable tool schemas
+   and reviewed configuration, including arguments the model can control.
+2. **Write a bounded payload.** The attacker proposes synthetic memo text. It
+   cannot change customer identity, assistant tools, or the underlying bank.
+3. **Run the actual assistant.** Apply the memo in an isolated snapshot overlay
+   and start a fresh run through the shared LangGraph/LangChain runtime.
+4. **Check exposure.** Verify that the exact memo reached model context.
+   An attack the assistant never saw is labeled **not exposed**.
+5. **Follow the data.** Score foreign reads, delivery to model context, and
+   attributed disclosure separately. Findings cite persisted event IDs.
 
 ```mermaid
-flowchart TD
-    Start[Engineer selects an assistant and starts an assessment]
-    Inspect[Inspect executable tools, schemas, policies, and data scope]
-    Attack[Attacker Agent plans and runs adversarial tests]
-    Target[Target Assistant uses LangChain tools]
-    Evidence[Record observed tool calls, decisions, reads, and outputs]
-    Score[Trusted deterministic scorer evaluates evidence]
-    Investigate[Investigator Agent traces the cause to evidence and code]
-    Defense[Defense Agent proposes a structured remediation plan]
-    Approve{Engineer requests Generate Fix}
-    Code[Coding Agent creates a bounded patch in an isolated workspace]
-    Verify[Run security checks, benign tasks, and a clean replay]
-    Review[Review evidence, results, and exact code diff]
-    Decision[Accept, reject, export, or explicitly create a PR]
-
-    Start --> Inspect --> Attack --> Target --> Evidence --> Score
-    Score --> Investigate --> Defense --> Approve
-    Approve -->|Yes| Code --> Verify --> Review --> Decision
-    Verify -->|Fails or incomplete| Review
-    Approve -->|No| Review
+flowchart LR
+    Inspect[Executable tool manifest] --> Attack[Bounded memo attacker]
+    Attack --> Overlay[Isolated bank snapshot overlay]
+    Overlay --> Target[Shared banking assistant]
+    Target --> Evidence[Observed calls, reads, context and output]
+    Evidence --> Score[Deterministic scorer]
+    Score --> Finding[Finding with event IDs]
 ```
 
-### The agents have distinct jobs
+Did a control deny the request, did the assistant decline to try it, did the
+payload fail to arrive, or did a real read cross the customer boundary? Those
+outcomes require different conclusions. See the
+[attacker walkthrough](docs/T11_EVIDENCE.md) and
+[observed scoring](docs/T10_EVIDENCE.md).
 
-- **Target Assistant — LangChain:** handles the user's banking task through typed tools. It does not decide who the user is or grant itself access.
-- **Attacker Agent:** studies the target's declared capabilities and proposes relevant adversarial tests. Assistant-specific attack planning is future work; the current demo runs fixed scenario tests.
-- **Investigator Agent:** connects observed events to the likely trust-boundary failure and relevant source locations, separating evidence from hypotheses.
-- **Defense Agent:** turns the investigation into a structured remediation plan with expected effects, usability risks, and verification criteria.
-- **Coding Agent:** acts only after the engineer requests **Generate Fix**. It creates a bounded patch in an isolated workspace; it cannot approve its own change.
+## What works today
 
-**Trusted application code owns identity, authorization, evidence integrity, and security verdicts.** Agents can propose attacks and repairs; they do not grant permissions or grade their own work. A repair is only demonstrated when security checks, useful-task regressions, and clean replay support the claim.
+| Capability | Current implementation |
+| --- | --- |
+| Banking chat and inspector | Persisted conversations, typed bank tools, observed events, guided fixtures, and opt-in metered live chat. |
+| Target inspection | Manifests derived from real tool schemas, with trusted identity bindings and explicit policy boundaries. |
+| Bounded attacker | Memo-only candidates, isolated overlays, fresh assistant runs, exposure checks, sanitized feedback, and bounded attempts. Live use is opt-in. |
+| Evidence and scoring | Durable runtime events and code-based findings that distinguish foreign reads, model-context delivery, and disclosure. |
+| Control and usefulness checks | Four direct probes and five ordinary assistant cases, evaluated separately against synthetic banking facts. |
+| Scripted security demo | Fixed phishing and cross-customer scenarios with registered defenses and replay, explicitly labeled as fixtures. |
 
-## What the demo tests today
-
-The current demo uses a synthetic banking environment and fixed, deterministic scenarios:
-
-- **Transaction memo phishing:** untrusted memo text attempts to make the assistant recommend an external verification link. The scorer checks typed actions, not inert quoted text.
-- **Cross-customer disclosure:** a controlled vulnerable lookup path exposes a synthetic marker in the baseline; the defended replay records a denial and checks that the marker never reached model context or output.
-- **Usefulness after defense:** five benign regression cases check that defenses preserve ordinary banking tasks.
-
-The full workflow above describes Sentinel's product vision. Today, the default chat
-runs an explicitly limited offline model through the shared runtime and actual
-banking tools, with persisted conversations and observed execution events.
-The separate scripted campaigns demonstrate fixed attack/replay fixtures.
-Live conversation supports typos, bounded follow-ups, merchant/amount filters,
-category exclusions and period comparisons. Questions outside banking are
-declined; missing dates or unavailable balances/actions receive clarification
-rather than invented data. See the [T09 release evidence](docs/T09_EVIDENCE.md),
-including earlier failures and the successful correction/retest. Tailored attack
-generation remains upcoming work. The selected lab target deliberately retains
-its unsafe lookup; this is not a production banking assistant.
+**The attack and evidence foundations are implemented. Automated investigation,
+generated code repair, and clean paired verification of that repair are planned.**
+The bounded attacker and evaluation services are backend capabilities; the full
+assessment-to-repair interface is still on the roadmap. Fixture tests establish
+the wiring and defined invariants, not a general model-security success rate.
 
 ## Architecture and technology
 
-```text
-React + TypeScript dashboard
-        ↓
-FastAPI + Pydantic API
-        ↓
-LangGraph workflow ── coordinates state, routing, and agent handoffs
-        ↓
-LangChain assistant + typed tools
-        ↓
-Trusted tool gateway ── binds session identity and enforces access
-        ↓
-Synthetic bank and append-only runtime evidence
-        ↓
-SQLite · SQLAlchemy · Alembic
+```mermaid
+flowchart TD
+    UI[React + TypeScript: chat and inspector] --> API[FastAPI + Pydantic]
+    API --> Runtime[LangGraph assistant runtime]
+    Attack[Bounded attacker service] --> Runtime
+    Eval[Benign-task evaluator] --> Runtime
+    Runtime --> Tools[LangChain typed tools]
+    Tools --> Gateway[Trusted identity and tool gateway]
+    Gateway --> Bank[Synthetic bank snapshots]
+    Runtime --> Evidence[Observed event recorder]
+    Gateway --> Evidence
+    Bank --> Evidence
+    Evidence --> DB[(SQLite + SQLAlchemy + Alembic)]
+    DB --> Score[Deterministic evidence scorer]
+    Runtime -. live calls .-> Broker[Durable usage and budget broker]
+    Attack -. live calls .-> Broker
 ```
 
-The design separates model proposals from application authority. Target manifests come from executable tools; the gateway records requested and effective scope; evidence captures actual operations; and deterministic code evaluates security invariants. SQLite stores the synthetic banking data, campaign reports, and observed evidence, with Alembic migrations for schema changes. The optional provider integration uses LangChain's OpenAI adapter.
+Models propose actions. Application code owns identity, authorization, budgets,
+and verdicts. Chat, attack trials, and benign checks share the same tool execution
+path, so evaluations exercise the assistant people actually use.
+
+| Engineering decision | Why it matters |
+| --- | --- |
+| Bind identity in trusted application context | Model-controlled arguments must not decide which customer the assistant represents. The deliberately unsafe lab profile exposes that failure. |
+| Derive manifests from executable tools | Attack planning should reflect what the selected assistant can actually call. |
+| Record operations at execution boundaries | A model's explanation is insufficient evidence of a read, a denial, or a disclosure. |
+| Use snapshots and per-run memo overlays | An attack can alter its allowed input without contaminating another trial's bank data. |
+| Separate direct controls from benign-agent evaluation | Enforcing permissions and preserving useful banking queries are distinct requirements. |
+| Reserve budget before dispatch | Concurrent calls, restarts, and uncertain charges need durable accounting, including attacker calls. |
+
+Explore the [architecture decisions](docs/adr/),
+[runtime evidence](docs/T02_EVIDENCE.md), and
+[control/usefulness evaluation](docs/T13_EVIDENCE.md).
+
+## Closing the repair loop
+
+The planned workflow extends an observed finding into a reviewable change:
+
+```mermaid
+flowchart LR
+    Finding[Observed failure] -. planned .-> Investigate[Investigator: evidence and source cause]
+    Investigate --> Defense[Defense agent: remediation plan]
+    Defense --> Request[Engineer requests Generate Fix]
+    Request --> Code[Coding agent: isolated patch]
+    Code --> Verify[Security checks + benign tasks + clean replay]
+    Verify --> Review[Engineer reviews exact diff and evidence]
+```
+
+The Investigator will connect events to source locations. The Defense Agent will
+propose a structured remediation plan. After **Generate Fix**, the Coding Agent
+will patch an isolated copy of the vulnerable target. Verification will test that
+specific revision; the engineer will accept, reject, export, or explicitly create
+a PR. A prebuilt protected profile is a reference control, never evidence that
+the Coding Agent generated a successful repair.
+
+Banking is the first environment. The long-term direction is to support other
+assistants through reviewed target integrations. Arbitrary external chatbot
+intake is not implemented today. See the
+[implementation plan](IMPLEMENTATION_PLAN.md) and [status tracker](docs/ROADMAP.md).
 
 ## Run locally
 
@@ -140,8 +180,8 @@ track unrelated applications using the same key. See [T08 notes](docs/T08_EVIDEN
 
 Scripted attack outcomes are controlled fixtures, not observed model failures.
 Their paired replay uses the same synthetic inputs with a registered defense.
-Live chat records actual provider/tool evidence, but generated attacks and live
-campaign repair/replay remain later tickets. Chat keeps at most five complete
+Live chat records actual provider/tool evidence. Bounded memo attack generation
+is implemented in the backend; live campaign repair/replay remains planned. Chat keeps at most five complete
 prior turns, trimming older ones to fit a conservative input bound; it is not
 unlimited memory. Model prose is not a guarantee of accuracy or prompt-injection
 resistance. Balances, money movement, live exchange rates, production
