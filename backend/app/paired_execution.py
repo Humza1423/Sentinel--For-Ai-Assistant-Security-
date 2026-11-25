@@ -123,6 +123,11 @@ def compare_executions(baseline_run_id, candidate_run_id, *, declared_changes=()
         result.reason = "Input receipt fields are incomplete."
         return result
     for receipt in receipts:
+        if not isinstance(receipt["config"], dict) or set(receipt["config"]) != set(
+            TargetConfig.model_fields
+        ):
+            result.reason = "The recorded configuration is incomplete."
+            return result
         try:
             TargetConfig.model_validate(receipt["config"])
         except (ValueError, TypeError):

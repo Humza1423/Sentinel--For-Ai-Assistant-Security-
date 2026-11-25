@@ -127,7 +127,8 @@ def test_mismatched_receipt_fields_prevent_match(monkeypatch, field):
     assert comparison.status != "matched"
 
 
-def test_incomplete_source_and_missing_events_are_inconclusive(monkeypatch):
+@pytest.mark.parametrize("missing", ["source", "config"])
+def test_incomplete_source_and_missing_events_are_inconclusive(monkeypatch, missing):
     import app.paired_execution as paired
 
     result = execute_pair(**case())
@@ -138,7 +139,11 @@ def test_incomplete_source_and_missing_events_are_inconclusive(monkeypatch):
         altered = []
         for event in events:
             if event.name == "request.received":
-                payload = {**event.payload, "source_receipt": {"status": "verified"}}
+                payload = {**event.payload}
+                if missing == "source":
+                    payload["source_receipt"] = {"status": "verified"}
+                else:
+                    payload["execution_receipt"] = {**payload["execution_receipt"], "config": {}}
                 event = event.model_copy(update={"payload": payload})
             altered.append(event)
         return tuple(altered), origin
