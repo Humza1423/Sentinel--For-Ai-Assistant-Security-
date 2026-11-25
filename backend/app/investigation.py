@@ -45,6 +45,7 @@ class SourceExcerpt(BaseModel):
 
 
 class Investigation(BaseModel):
+    event_id: UUID | None = None
     run_id: UUID
     status: Literal[
         "explained",
@@ -254,15 +255,21 @@ def investigate_run(run_id: UUID, *, model=None, target_config: TargetConfig | N
         return result
     result.hypothesis = proposal
     result.status = "explained"
-    EvidenceRecorder(run_id).append(
-        "investigation.proposed",
-        "investigator",
-        {
-            "revision": result.revision,
-            "analyst": result.analyst,
-            **proposal.model_dump(mode="json"),
-        },
-        parent_event_id=request.event_id,
-        provenance={"explanation": "model_generated" if model is not None else "system_trusted"},
+    result.event_id = (
+        EvidenceRecorder(run_id)
+        .append(
+            "investigation.proposed",
+            "investigator",
+            {
+                "revision": result.revision,
+                "analyst": result.analyst,
+                **proposal.model_dump(mode="json"),
+            },
+            parent_event_id=request.event_id,
+            provenance={
+                "explanation": "model_generated" if model is not None else "system_trusted"
+            },
+        )
+        .event_id
     )
     return result
