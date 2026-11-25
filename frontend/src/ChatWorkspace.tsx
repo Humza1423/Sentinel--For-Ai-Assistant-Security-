@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import BudgetPanel from './BudgetPanel'
 import AssessmentPanel from './AssessmentPanel'
+import IncidentPlayback from './IncidentPlayback'
 import {
   useInfiniteQuery,
   useMutation,
@@ -74,6 +75,21 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
   })
   const [selectedRun, setSelectedRun] = useState<string | null>(null)
   const [showTarget, setShowTarget] = useState(false)
+  const [playback, setPlayback] = useState(false)
+  const assessButton = useRef<HTMLButtonElement>(null)
+  const checksHeading = useRef<HTMLHeadingElement>(null)
+  const returnFocus = useRef<'chat' | 'checks' | null>(null)
+  function closePlayback(destination: 'chat' | 'checks') {
+    returnFocus.current = destination
+    setShowTarget(destination === 'checks')
+    setPlayback(false)
+  }
+  useEffect(() => {
+    if (playback || !returnFocus.current) return
+    const control = returnFocus.current === 'checks' ? checksHeading.current : assessButton.current
+    control?.focus()
+    returnFocus.current = null
+  }, [playback])
   const [lastAttempt, setLastAttempt] = useState<{
     text: string
     requestId: string
@@ -175,6 +191,156 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
       send.mutate(attempt)
     }
   }
+  const chatPane = (
+    <section className="chat-pane" aria-label="Banking conversation">
+      <div className="pane-heading">
+        <h2>
+          <ChatCircle size={21} /> Banking chat
+        </h2>
+        <button
+          className="export-button"
+          disabled={busy}
+          onClick={() => reset.mutate(data?.mode ?? 'fixture_execution')}
+        >
+          New conversation
+        </button>
+      </div>
+      <p className="fixture-notice">
+        {data?.mode === 'live_execution'
+          ? 'Real model · Ask naturally, including follow-ups. Synthetic CAD records: June 26–October 23, 2026. This lab target includes a deliberately unsafe lookup for later assessments.'
+          : 'Guided demo · Choose an example below. Responses are deterministic, using real banking tools and records. Select Real model to type freely.'}
+      </p>
+      {availability.data?.live_chat?.reason && (
+        <p className="fixture-notice">
+          Live chat unavailable: {availability.data.live_chat.reason}
+        </p>
+      )}
+      {reset.error && <p role="alert">{reset.error.message}</p>}
+      {data?.requires_new_conversation && (
+        <p role="alert">
+          The assistant configuration changed. Select New conversation to
+          use the updated tools; your previous conversation remains saved.
+        </p>
+      )}
+      <div className="chat-transcript" aria-live="polite">
+        {!data?.turns.length && (
+          <div className="chat-welcome">
+            <span className="flow-icon">
+              <ChatCircle size={25} />
+            </span>
+            <h3>Start with your synthetic account.</h3>
+            <p>
+              Explore transactions or spending, then select an answer to
+              inspect how it was produced.
+            </p>
+          </div>
+        )}
+        {data?.turns.map((turn) => (
+          <div className="chat-turn" key={turn.request_id}>
+            <div className="user-bubble">
+              <small>YOU</small>
+              <p>{turn.user_message}</p>
+            </div>
+            <button
+              className={`assistant-bubble ${runId === turn.run_id ? 'selected' : ''}`}
+              aria-pressed={runId === turn.run_id}
+              onClick={() => { setSelectedRun(turn.run_id); if (playback) closePlayback('chat') }}
+            >
+              <small>SENTINEL · {turn.status}</small>
+              <p>
+                {turn.result?.response?.display_text ??
+                  errorMessages[turn.result?.reason_code ?? ''] ??
+                  `This turn ended as ${turn.status}. ${turn.result?.reason_code ?? 'Inspect available evidence.'}`}
+              </p>
+              <span>
+                Inspect this answer <ArrowRight size={13} />
+              </span>
+              {!!turn.result?.dropped_turns && (
+                <small>
+                  {turn.result.dropped_turns} earlier turns outside model
+                  context
+                </small>
+              )}
+            </button>
+          </div>
+        ))}
+        {send.isPending && (
+          <p role="status">
+            <CircleNotch className="spinner" /> Running tools and
+            recording evidence…
+          </p>
+        )}
+      </div>
+      <div className="example-questions">
+        {examples.map((text) => (
+          <button
+            key={text}
+            disabled={busy || !data || data.requires_new_conversation}
+            onClick={() => submit(text)}
+          >
+            {text}
+          </button>
+        ))}
+      </div>
+      <form
+        className="chat-composer"
+        onSubmit={(event) => {
+          event.preventDefault()
+          submit(message)
+        }}
+      >
+        <label className="sr-only" htmlFor="chat-message">
+          Banking question
+        </label>
+        <textarea
+          id="chat-message"
+          value={message}
+          onChange={(event) => setMessage(event.target.value)}
+          placeholder={
+            data?.mode === 'live_execution'
+              ? 'Ask about your synthetic transactions…'
+              : 'Choose an example above, or select Real model to type freely.'
+          }
+          maxLength={4000}
+          disabled={
+            busy ||
+            !data ||
+            data.mode !== 'live_execution' ||
+            data.requires_new_conversation
+          }
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && !event.shiftKey) {
+              event.preventDefault()
+              submit(message)
+            }
+          }}
+        />
+        <button
+          className="run-button"
+          disabled={
+            busy ||
+            !data ||
+            data.mode !== 'live_execution' ||
+            data.requires_new_conversation ||
+            !message.trim()
+          }
+          type="submit"
+        >
+          Send <ArrowRight size={16} />
+        </button>
+      </form>
+      {(session.error || reset.error || send.error) && (
+        <div className="inline-alert" role="alert">
+          {(session.error ?? reset.error ?? send.error)?.message}
+          <button disabled={busy} onClick={() => session.refetch()}>
+            Reload conversation
+          </button>
+        </div>
+      )}
+    </section>
+  )
+  if (playback) return <IncidentPlayback chatPane={chatPane} metered={data?.mode === 'live_execution'}
+    onReturn={() => closePlayback('chat')} onVerify={() => closePlayback('checks')} />
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -239,7 +405,8 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
           </span>
           <button
             disabled={busy || !data}
-            onClick={() => setShowTarget(!showTarget)}
+            ref={assessButton}
+            onClick={() => setPlayback(true)}
             className="export-button"
           >
             Assess assistant <ShieldCheck size={17} />
@@ -250,7 +417,7 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
             className="target-preview"
             aria-label="Selected assessment target"
           >
-            <b>Selected assistant</b>
+            <h2 ref={checksHeading} tabIndex={-1}>Selected assistant</h2>
             <p>
               Review the selected tools and run saved banking checks below.
             </p>
@@ -266,152 +433,7 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
           </section>
         )}
         <div className="chat-grid">
-          <section className="chat-pane" aria-label="Banking conversation">
-            <div className="pane-heading">
-              <h2>
-                <ChatCircle size={21} /> Banking chat
-              </h2>
-              <button
-                className="export-button"
-                disabled={busy}
-                onClick={() => reset.mutate(data?.mode ?? 'fixture_execution')}
-              >
-                New conversation
-              </button>
-            </div>
-            <p className="fixture-notice">
-              {data?.mode === 'live_execution'
-                ? 'Real model · Ask naturally, including follow-ups. Synthetic CAD records: June 26–October 23, 2026. This lab target includes a deliberately unsafe lookup for later assessments.'
-                : 'Guided demo · Choose an example below. Responses are deterministic, using real banking tools and records. Select Real model to type freely.'}
-            </p>
-            {availability.data?.live_chat?.reason && (
-              <p className="fixture-notice">
-                Live chat unavailable: {availability.data.live_chat.reason}
-              </p>
-            )}
-            {reset.error && <p role="alert">{reset.error.message}</p>}
-            {data?.requires_new_conversation && (
-              <p role="alert">
-                The assistant configuration changed. Select New conversation to
-                use the updated tools; your previous conversation remains saved.
-              </p>
-            )}
-            <div className="chat-transcript" aria-live="polite">
-              {!data?.turns.length && (
-                <div className="chat-welcome">
-                  <span className="flow-icon">
-                    <ChatCircle size={25} />
-                  </span>
-                  <h3>Start with your synthetic account.</h3>
-                  <p>
-                    Explore transactions or spending, then select an answer to
-                    inspect how it was produced.
-                  </p>
-                </div>
-              )}
-              {data?.turns.map((turn) => (
-                <div className="chat-turn" key={turn.request_id}>
-                  <div className="user-bubble">
-                    <small>YOU</small>
-                    <p>{turn.user_message}</p>
-                  </div>
-                  <button
-                    className={`assistant-bubble ${runId === turn.run_id ? 'selected' : ''}`}
-                    aria-pressed={runId === turn.run_id}
-                    onClick={() => setSelectedRun(turn.run_id)}
-                  >
-                    <small>SENTINEL · {turn.status}</small>
-                    <p>
-                      {turn.result?.response?.display_text ??
-                        errorMessages[turn.result?.reason_code ?? ''] ??
-                        `This turn ended as ${turn.status}. ${turn.result?.reason_code ?? 'Inspect available evidence.'}`}
-                    </p>
-                    <span>
-                      Inspect this answer <ArrowRight size={13} />
-                    </span>
-                    {!!turn.result?.dropped_turns && (
-                      <small>
-                        {turn.result.dropped_turns} earlier turns outside model
-                        context
-                      </small>
-                    )}
-                  </button>
-                </div>
-              ))}
-              {send.isPending && (
-                <p role="status">
-                  <CircleNotch className="spinner" /> Running tools and
-                  recording evidence…
-                </p>
-              )}
-            </div>
-            <div className="example-questions">
-              {examples.map((text) => (
-                <button
-                  key={text}
-                  disabled={busy || !data || data.requires_new_conversation}
-                  onClick={() => submit(text)}
-                >
-                  {text}
-                </button>
-              ))}
-            </div>
-            <form
-              className="chat-composer"
-              onSubmit={(event) => {
-                event.preventDefault()
-                submit(message)
-              }}
-            >
-              <label className="sr-only" htmlFor="chat-message">
-                Banking question
-              </label>
-              <textarea
-                id="chat-message"
-                value={message}
-                onChange={(event) => setMessage(event.target.value)}
-                placeholder={
-                  data?.mode === 'live_execution'
-                    ? 'Ask about your synthetic transactions…'
-                    : 'Choose an example above, or select Real model to type freely.'
-                }
-                maxLength={4000}
-                disabled={
-                  busy ||
-                  !data ||
-                  data.mode !== 'live_execution' ||
-                  data.requires_new_conversation
-                }
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' && !event.shiftKey) {
-                    event.preventDefault()
-                    submit(message)
-                  }
-                }}
-              />
-              <button
-                className="run-button"
-                disabled={
-                  busy ||
-                  !data ||
-                  data.mode !== 'live_execution' ||
-                  data.requires_new_conversation ||
-                  !message.trim()
-                }
-                type="submit"
-              >
-                Send <ArrowRight size={16} />
-              </button>
-            </form>
-            {(session.error || reset.error || send.error) && (
-              <div className="inline-alert" role="alert">
-                {(session.error ?? reset.error ?? send.error)?.message}
-                <button disabled={busy} onClick={() => session.refetch()}>
-                  Reload conversation
-                </button>
-              </div>
-            )}
-          </section>
+          {chatPane}
           <aside className="security-inspector" aria-label="Security inspector">
             <div className="pane-heading">
               <h2>

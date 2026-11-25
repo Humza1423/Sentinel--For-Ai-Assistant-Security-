@@ -2,8 +2,16 @@
 
 ## Delivery cadence
 
-- Implement exactly one approved roadmap ticket at a time. Explain its purpose,
-  inputs/outputs, alternatives, and learning concepts before editing.
+- Use phase mode by default until the first Sentinel MVP ships. Continue
+  through the agreed release roadmap without waiting for routine approval
+  between tickets. Use ticket mode when the user requests a single ticket.
+- Phase mode never combines tickets or bypasses gates. Every ticket still gets a
+  separate branch, focused implementation, tests, documentation, independent
+  review, PR, CI, and merge. Begin the next ticket only after the previous ticket
+  is merged and local `main` is current; never build dependent tickets in parallel.
+- Explain each ticket's purpose, inputs/outputs, alternatives, and learning
+  concepts before editing. In phase mode this can be a concise checkpoint when
+  those decisions were already approved in the phase brief.
 - Start from an up-to-date `main` and use `codex/tXX-short-description`.
 - Keep the app working, preserve unrelated changes, and do not rebuild completed layers.
 - Add focused tests, an ADR for important tradeoffs, learning notes, a changelog entry,
@@ -16,8 +24,26 @@
   force-push main, or invent another person's review approval.
 - Attach every created PR to this Codex chat. After merge, fast-forward local main,
   report the commit/PR/checks, explain the implementation, and propose the next ticket.
-- Wait for user review before beginning that next ticket. Approval to publish the
-  current ticket does not remove the learning/review gate between tickets.
+- In ticket mode, wait for user review before beginning the next ticket. In phase
+  mode, report a concise checkpoint and continue unless a new material decision,
+  failed gate, new permission, paid usage, contradictory evidence, or user pause
+  requires review.
+
+## Collaboration preference
+
+- Optimize for a strong, shippable product and the user's growth as an AI
+  engineer—not merely fast completion or recruiter presentation.
+- Proactively surface better approaches, real tradeoffs, and capabilities the
+  user may not know to request. Disagree plainly when evidence supports a better
+  direction.
+- Use phase mode for well-defined, tightly connected local work. Prefer ticket
+  mode or a deliberate checkpoint for high-impact architecture choices, live API
+  spend, security-sensitive execution, external integrations, and generated-code
+  repair boundaries.
+
+- The coordinating agent owns the shared interface and integration decision. Delegate independent work when it saves time. Give each worker a bounded task and review its result against the ticket gate.
+- Run independent backend and frontend checks in parallel. For workspace changes, also exercise the integrated flow in a browser. Review the full diff and evidence at major checkpoints.
+- Commit reviewable increments such as a working interaction, regression coverage, or updated operating instructions. Keep each ticket in its own PR and retain the squash-merge rule.
 
 ## Evidence and API budget
 

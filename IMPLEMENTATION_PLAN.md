@@ -13,6 +13,16 @@ For this release, the evidence workspace and registered-defense verification
 come before generated code. Coding Agent tickets remain a later milestone and
 require a secure isolated runner before any generated code executes.
 
+### Release sequence for the evidence workspace
+
+| Ticket | Build | Release check |
+| --- | --- | --- |
+| T15A · Follow a case | Put a branching incident diagram beside the corresponding banking conversation. A single playback position selects both. Preserve ordinary chat and its session. | Step through a sanitized fixture using a mouse or keyboard. Confirm the graph and transcript agree, including on a narrow screen with reduced motion. |
+| T15B · Verify this assistant | Lead from the case into a fresh permission assessment. Compare the selected assistant with its separately configured copy and connect each result to its own evidence. | Inspect an actual check from each copy, compare input receipts, export the saved report, and distinguish incomplete checks from passing ones. |
+| T16A · Ship the local walkthrough | Document and exercise the shortest path from a clean checkout to playback, chat, verification and export. | Migrate an empty local database, start both services, complete the walkthrough in a browser and pass both CI suites. |
+
+The recorded example teaches how to read an incident. The fresh assessment measures the selected assistant's permissions and banking behavior. Keep their evidence and conclusions visibly separate. These release slices precede the longer-term product flow below.
+
 ## Product goal and complete flow
 
 Build a banking-agent security workbench that discovers an observed failure,

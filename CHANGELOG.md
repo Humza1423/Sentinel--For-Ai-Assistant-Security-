@@ -1,5 +1,9 @@
 # Changelog
 
+## T15A — Follow an incident beside the conversation
+
+- Step through a sanitized investigation example, switch to the selected assistant’s banking chat and open its permission checks.
+
 ## T15 — Registered defense evidence workspace
 
 - Show observed customer authority, the likely cause, the recommended control, and the verification result. Compare the selected and defended assistant answers and inspect each run’s evidence.
