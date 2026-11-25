@@ -43,6 +43,8 @@ def test_pinned_excerpts_survive_checkout_change(checkout):
 
     excerpts = source.verified_sources(receipt)
     assert {e["id"] for e in excerpts} == {"gateway.scope", "bank.lab_read", "runtime.dispatch"}
+    dispatch = next(e["text"] for e in excerpts if e["id"] == "runtime.dispatch")
+    assert "bound_model.on_dispatch" in dispatch
     for excerpt in excerpts:
         contents = git("show", f"{receipt['revision']}:{excerpt['path']}").splitlines()
         assert excerpt["text"] == "\n".join(contents[excerpt["start"] - 1 : excerpt["end"]])

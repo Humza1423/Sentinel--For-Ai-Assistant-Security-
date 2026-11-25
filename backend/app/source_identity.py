@@ -28,7 +28,7 @@ _TARGET_FILES = tuple(
 _SNIPPETS = (
     ("gateway.scope", "backend/app/gateway.py", 'elif profile == "vulnerable_lookup_v1":', 6),
     ("bank.lab_read", "backend/app/bank.py", "class VulnerableSnapshotLabRepository:", 16),
-    ("runtime.dispatch", "backend/app/runtime.py", "context_event = recorder.append(", 15),
+    ("runtime.dispatch", "backend/app/runtime.py", "context_event = recorder.append(", 31),
 )
 
 
