@@ -179,7 +179,7 @@ def execute_assessment(assessment_id):
             candidate_scope = inspect_customer_scope(candidate_config, context)
             progress("candidate_scope_checked", candidate_scope)
             controls = run_session_bound_probes(
-                candidate_config, context, on_result=lambda r: progress("reference_control", r)
+                candidate_config, context, on_result=lambda r: progress("candidate_control", r)
             )
         else:
             controls = run_control_probes(

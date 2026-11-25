@@ -65,7 +65,7 @@ def test_cancellation_between_model_calls_keeps_partial_trace(monkeypatch):
     state = assessments.read_assessment(aid, owner)
     assert state["status"] == "cancelled"
     assert state["report"] is None
-    assert any(e["type"] == "reference_control" for e in state["events"])
+    assert any(e["type"] == "candidate_control" for e in state["events"])
 
 
 def test_http_report_events_and_bad_owner():

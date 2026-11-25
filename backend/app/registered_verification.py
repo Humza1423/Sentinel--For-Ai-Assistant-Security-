@@ -20,11 +20,21 @@ def inspect_customer_scope(config, context):
     ]
     access = manifest.customer_access
     receipt = source_receipt()
+    outcome = (
+        "exposed_capability"
+        if tools
+        else (
+            "session_bound"
+            if access.identity_source == "trusted_session" and access.repository_scope_enforced
+            else "inconclusive"
+        )
+    )
     event = recorder.append(
         "scorer.verdict",
         "scorer",
         {
             "check": "customer_identity_scope",
+            "outcome": outcome,
             "model_controlled_customer_tools": tools,
             "identity_source": access.identity_source,
             "repository_scope_enforced": access.repository_scope_enforced,
@@ -34,13 +44,6 @@ def inspect_customer_scope(config, context):
     )
     return {
         **event.payload,
-        "outcome": "exposed_capability"
-        if tools
-        else (
-            "session_bound"
-            if access.identity_source == "trusted_session" and access.repository_scope_enforced
-            else "inconclusive"
-        ),
         "run_id": str(recorder.run_id),
         "event_id": str(event.event_id),
     }
