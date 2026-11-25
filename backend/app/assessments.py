@@ -92,12 +92,15 @@ def read_assessment(assessment_id, owner, after=0):
             )
             .order_by(AssessmentEventRow.sequence)
         ).all()
+        report = json.loads(row.report_json) if row.report_json else None
         return {
             "assessment_id": assessment_id,
             "status": row.status,
             "mode": "fixture_execution",
-            "scope": "usefulness_and_reference_controls",
-            "report": json.loads(row.report_json) if row.report_json else None,
+            "scope": report["scope"]
+            if report and "scope" in report
+            else "usefulness_and_reference_controls",
+            "report": report,
             "events": [
                 {"sequence": event.sequence, **json.loads(event.payload_json)} for event in events
             ],
@@ -195,7 +198,7 @@ def execute_assessment(assessment_id):
         )
         report = {
             "mode": "fixture_execution",
-            "scope": "usefulness_and_reference_controls",
+            "scope": "registered_defense_verification",
             "target_config": config.model_dump(mode="json"),
             "controls": [r.model_dump(mode="json") for r in controls],
             "benign": [r.model_dump(mode="json") for r in benign],

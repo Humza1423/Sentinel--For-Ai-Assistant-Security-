@@ -182,3 +182,47 @@ def test_cancelled_partial_run_evidence_stays_owner_scoped(monkeypatch):
         assert client.get(url).status_code == 404
         client.cookies.set("sentinel_owner", owner)
         assert client.get(url).status_code == 200
+
+
+def test_registered_defense_passes_on_separate_target_with_comparable_cases():
+    from app.chat import get_session
+
+    sid, owner = setup()
+    before = get_session(sid, owner)
+    aid, _ = assessments.create_assessment(sid, owner, str(uuid4()))
+    assessments.execute_assessment(aid)
+    state = assessments.read_assessment(aid, owner)
+    report = state["report"]
+    assert state["status"] == "complete"
+    assert report["baseline_scope"]["outcome"] == "exposed_capability"
+    assert report["recommendation"]["evidence_event_id"] == report["baseline_scope"]["event_id"]
+    verified = report["verification"]
+    assert verified["status"] == "passed"
+    assert verified["candidate_scope"]["outcome"] == "session_bound"
+    assert verified["candidate_scope"]["target_digest"] != report["baseline_scope"]["target_digest"]
+    assert all(pair["status"] == "matched" for pair in verified["comparisons"])
+    assert all(case["outcome"] == "passed" for case in report["controls"])
+    assert all(case["outcome"] == "passed" for case in verified["candidate_benign"])
+    assert get_session(sid, owner) == before
+
+
+def test_protected_target_reports_no_candidate_needed():
+    owner = str(uuid4())
+    sid = create_session(TargetConfig(), owner)["session_id"]
+    aid, _ = assessments.create_assessment(sid, owner, str(uuid4()))
+    assessments.execute_assessment(aid)
+    report = assessments.read_assessment(aid, owner)["report"]
+    assert report["baseline_scope"]["outcome"] == "session_bound"
+    assert report["recommendation"] is None
+    assert "verification" not in report
+
+
+def test_incomplete_comparison_never_verifies_a_defense(monkeypatch):
+    monkeypatch.setattr(
+        assessments, "compare_banking_cases", lambda *_: [{"status": "inconclusive"}]
+    )
+    sid, owner = setup()
+    aid, _ = assessments.create_assessment(sid, owner, str(uuid4()))
+    assessments.execute_assessment(aid)
+    report = assessments.read_assessment(aid, owner)["report"]
+    assert report["verification"]["status"] == "inconclusive"
