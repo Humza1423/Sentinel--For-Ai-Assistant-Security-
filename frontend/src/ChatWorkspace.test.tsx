@@ -211,6 +211,10 @@ describe('Banking workspace', () => {
       ),
     ).toBe(true)
     fireEvent.click(screen.getByRole('button', { name: 'Assess assistant' }))
+    expect(screen.getByRole('heading', { name: 'Customer access assessment' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Open banking chat' }))
+    expect(screen.getByText('Actual bank answer')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Review defense checks' }))
     expect(screen.getByText('Selected assistant')).toBeTruthy()
     expect(
       screen.getByText(/Review the selected tools/),
