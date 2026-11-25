@@ -203,3 +203,14 @@ Run `cd backend && uv run --locked python -m scripts.evidence_demo` for a synthe
 ## Explore the design
 
 [90-second demo](docs/DEMO.md) · [Threat model](docs/THREAT_MODEL.md) · [Architecture decisions](docs/adr/) · [Contribution and quality workflow](CONTRIBUTING.md)
+
+
+For a separate local database, select the same destination for migration and startup:
+
+```sh
+cd backend
+uv run alembic -x database_url=sqlite:////tmp/sentinel-demo.db upgrade head
+WORKBENCH_DATABASE_URL=sqlite:////tmp/sentinel-demo.db uv run uvicorn app.main:app --port 8000
+```
+
+`WORKBENCH_DATABASE_URL` selects the application's database. The migration command uses the explicit `-x database_url` destination.

@@ -7,7 +7,7 @@ from uuid import UUID, uuid4
 
 from fastapi import Cookie, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from .assessment_api import router as assessment_router
 from .assessments import recover_assessments
@@ -24,7 +24,15 @@ from .live_model import MeteredOpenAIModel
 from .remediation import RepairProposal, propose_repair
 from .scenarios import SCENARIOS
 from .settings import load_external_env_file
-from .store import ChatTurnRow, Session, get_events, get_report, save_report
+from .store import (
+    AssessmentEventRow,
+    AssessmentRow,
+    ChatTurnRow,
+    Session,
+    get_events,
+    get_report,
+    save_report,
+)
 from .target_contracts import RequestContext, TargetConfig, TargetManifest, TargetModelConfig
 from .targets import resolve_target
 
@@ -93,9 +101,19 @@ def resolve_target_configuration(config: TargetConfig):
 def require_run_access(run_id, sentinel_owner):
     with Session() as db:
         turn = db.scalar(select(ChatTurnRow).where(ChatTurnRow.run_id == str(run_id)))
-        if turn is not None:
+        assessment = db.scalar(
+            select(AssessmentRow)
+            .join(AssessmentEventRow)
+            .where(
+                func.json_extract(AssessmentEventRow.payload_json, "$.result.run_id") == str(run_id)
+            )
+        )
+        session_id = (
+            turn.session_id if turn is not None else assessment.session_id if assessment else None
+        )
+        if session_id is not None:
             try:
-                require_session(db, turn.session_id, sentinel_owner)
+                require_session(db, session_id, sentinel_owner)
             except LookupError as exc:
                 raise HTTPException(404, "Run not found") from exc
 

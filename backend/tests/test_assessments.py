@@ -114,3 +114,71 @@ def test_completed_benign_result_survives_later_cancellation(monkeypatch):
     completed = [e for e in state["events"] if e["type"] == "benign_case"]
     assert len(completed) == 1
     assert completed[0]["result"]["run_id"] and completed[0]["result"]["event_ids"]
+
+
+def test_invalid_saved_configuration_fails_without_blocking_future_assessments():
+    from app.store import AssessmentRow, Session
+
+    sid, owner = setup()
+    aid, _ = assessments.create_assessment(sid, owner, str(uuid4()))
+    with Session.begin() as db:
+        db.get(AssessmentRow, aid).config_json = '{"unavailable_profile": true}'
+    assessments.execute_assessment(aid)
+    state = assessments.read_assessment(aid, owner)
+    assert state["status"] == "failed"
+    assert state["events"][-1]["type"] == "failed"
+    another, _ = assessments.create_assessment(sid, owner, str(uuid4()))
+    assessments.cancel_assessment(another, owner)
+
+
+def test_finalization_cannot_replace_a_terminal_report_or_restart_decision():
+    sid, owner = setup()
+    aid, _ = assessments.create_assessment(sid, owner, str(uuid4()))
+    assessments.execute_assessment(aid)
+    completed = assessments.read_assessment(aid, owner)
+    assessments.finish(aid, "failed")
+    assert assessments.read_assessment(aid, owner) == completed
+
+    another, _ = assessments.create_assessment(sid, owner, str(uuid4()))
+    assessments.recover_assessments()
+    interrupted = assessments.read_assessment(another, owner)
+    assessments.finish(another, "complete", {"late_worker": True})
+    assert assessments.read_assessment(another, owner) == interrupted
+
+
+def test_assessment_check_evidence_requires_its_owner():
+    sid, owner = setup()
+    aid, _ = assessments.create_assessment(sid, owner, str(uuid4()))
+    assessments.execute_assessment(aid)
+    state = assessments.read_assessment(aid, owner)
+    run_id = state["report"]["benign"][0]["run_id"]
+    with TestClient(app) as client:
+        url = f"/api/v2/runs/{run_id}/events"
+        assert client.get(url).status_code == 404
+        client.cookies.set("sentinel_owner", owner)
+        assert client.get(url).status_code == 200
+
+
+def test_cancelled_partial_run_evidence_stays_owner_scoped(monkeypatch):
+    from app.fixture_model import BankingFixtureModel
+
+    sid, owner = setup()
+    aid, _ = assessments.create_assessment(sid, owner, str(uuid4()))
+    original = BankingFixtureModel.invoke
+
+    def cancel_on_model(self, *args, **kwargs):
+        response = original(self, *args, **kwargs)
+        assessments.cancel_assessment(aid, owner)
+        return response
+
+    monkeypatch.setattr(BankingFixtureModel, "invoke", cancel_on_model)
+    assessments.execute_assessment(aid)
+    state = assessments.read_assessment(aid, owner)
+    assert state["status"] == "cancelled"
+    run_id = [e for e in state["events"] if e["type"] == "run_started"][-1]["result"]["run_id"]
+    assert not any(e["type"] == "benign_case" for e in state["events"])
+    with TestClient(app) as client:
+        url = f"/api/v2/runs/{run_id}/events"
+        assert client.get(url).status_code == 404
+        client.cookies.set("sentinel_owner", owner)
+        assert client.get(url).status_code == 200

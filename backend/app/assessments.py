@@ -8,7 +8,7 @@ from sqlalchemy import select
 
 from .chat import require_session
 from .evaluation import run_benign_suite, run_control_probes
-from .execution_control import ExecutionCancelled, check_execution
+from .execution_control import ExecutionCancelled, check_execution, on_run_started
 from .fixture_model import BankingFixtureModel
 from .store import AssessmentEventRow, AssessmentRow, Session
 from .target_contracts import RequestContext, TargetConfig
@@ -117,15 +117,12 @@ def execute_assessment(assessment_id):
             return
         row.status = "running"
         _event(db, row, "started")
-        config = TargetConfig.model_validate_json(row.config_json)
+        config_json = row.config_json
         from .store import ChatSessionRow
 
         session = db.get(ChatSessionRow, row.session_id)
-        context = RequestContext(
-            session_id=row.session_id,
-            authenticated_customer_id=session.customer_id,
-            request_id=str(uuid4()),
-        )
+        customer_id = session.customer_id
+        session_id = row.session_id
 
     def check():
         with Session() as db:
@@ -140,9 +137,24 @@ def execute_assessment(assessment_id):
             row = db.get(AssessmentRow, assessment_id)
             _event(db, row, kind, result=result.model_dump(mode="json"))
 
+    def record_run(run_id):
+        # Link ownership before any tool/model content is recorded, including runs
+        # that are cancelled before a complete case result can be saved.
+        with Session.begin() as db:
+            db.connection().exec_driver_sql("BEGIN IMMEDIATE")
+            row = db.get(AssessmentRow, assessment_id)
+            _event(db, row, "run_started", result={"run_id": str(run_id)})
+
     token = check_execution.set(check)
+    observer_token = on_run_started.set(record_run)
     try:
         check()
+        config = TargetConfig.model_validate_json(config_json)
+        context = RequestContext(
+            session_id=session_id,
+            authenticated_customer_id=customer_id,
+            request_id=str(uuid4()),
+        )
         controls = run_control_probes(
             config, context, on_result=lambda r: progress("reference_control", r)
         )
@@ -170,6 +182,7 @@ def execute_assessment(assessment_id):
     except Exception:  # noqa: BLE001 - retain progress without exposing provider or database details
         finish(assessment_id, "failed")
     finally:
+        on_run_started.reset(observer_token)
         check_execution.reset(token)
 
 
@@ -177,6 +190,8 @@ def finish(assessment_id, status, report=None):
     with Session.begin() as db:
         db.connection().exec_driver_sql("BEGIN IMMEDIATE")
         row = db.get(AssessmentRow, assessment_id)
+        if row is None or row.status not in ACTIVE:
+            return
         row.status = "cancelled" if row.cancel_requested else status
         row.report_json = json.dumps(report) if report and row.status == "complete" else None
         _event(db, row, row.status)

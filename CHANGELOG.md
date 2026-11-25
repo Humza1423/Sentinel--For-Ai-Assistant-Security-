@@ -1,5 +1,11 @@
 # Changelog
 
+## T14 — Assessment recovery and evidence inspection
+
+- Saved checks now expand into actual questions, responses and an evidence inspector. Connection failures support loading and idempotent start retries.
+- Failed initialization releases the active slot, terminal states resist late completion, and assessment evidence requires its owner.
+- Migration commands accept an explicit database destination.
+
 ## T14 — Saved local banking assessments
 
 - Added owner-scoped assessment creation, status, cancellation, report export and reconnectable persisted progress.

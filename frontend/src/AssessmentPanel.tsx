@@ -1,8 +1,18 @@
 import { useState } from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './chatApi'
 
-type Result = { case_id?: string; probe_id?: string; outcome: string; run_id: string }
+type Result = {
+  case_id?: string
+  probe_id?: string
+  outcome: string
+  run_id: string
+  user_message?: string
+  response_text?: string | null
+  expected?: string
+  observed?: string
+  event_ids?: string[]
+}
 type Assessment = {
   assessment_id: string
   status: string
@@ -11,7 +21,30 @@ type Assessment = {
   report: { benign: Result[]; controls: Result[] } | null
 }
 
-export default function AssessmentPanel({ sessionId }: { sessionId: string }) {
+function CheckResult({ result, onInspectRun }: {
+  result: Result
+  onInspectRun?: (runId: string) => void
+}) {
+  const label = (result.case_id ?? result.probe_id ?? 'Check').replaceAll(/[-_]/g, ' ')
+  return <li>
+    <details>
+      <summary>{label} — {result.outcome}</summary>
+      {result.user_message && <p><b>Question</b> {result.user_message}</p>}
+      {result.response_text && <p><b>Assistant response</b> {result.response_text}</p>}
+      {result.expected && <p><b>Expected</b> {result.expected}</p>}
+      {result.observed && <p><b>Observed</b> {result.observed}</p>}
+      {onInspectRun && result.run_id && <button className="export-button"
+        onClick={() => onInspectRun(result.run_id)}>Inspect this check</button>}
+      {!!result.event_ids?.length && <p>{result.event_ids.length} recorded evidence events</p>}
+    </details>
+  </li>
+}
+
+export default function AssessmentPanel({ sessionId, onInspectRun }: {
+  sessionId: string
+  onInspectRun?: (runId: string) => void
+}) {
+  const client = useQueryClient()
   const [id, setId] = useState<string | null>(() => localStorage.getItem(`sentinel-assessment-${sessionId}`))
   const [requestId] = useState(() => crypto.randomUUID())
   const state = useQuery({
@@ -27,6 +60,7 @@ export default function AssessmentPanel({ sessionId }: { sessionId: string }) {
     }),
     onSuccess: (data) => {
       localStorage.setItem(`sentinel-assessment-${sessionId}`, data.assessment_id)
+      client.setQueryData(['assessment', data.assessment_id], data)
       setId(data.assessment_id)
     },
   })
@@ -45,28 +79,35 @@ export default function AssessmentPanel({ sessionId }: { sessionId: string }) {
     link.click()
     URL.revokeObjectURL(url)
   }
+  const startLabel = start.isError ? 'Retry starting checks' : id ? 'Run new checks' : 'Run banking checks'
+  const startChecks = () => {
+    // A missing response may follow a successful server start. Retry its same ID.
+    const nextRequestId = start.isError && start.variables
+      ? start.variables
+      : id ? crypto.randomUUID() : requestId
+    start.mutate(nextRequestId)
+  }
   return <section aria-label="Banking assessment">
     <h3>Check everyday banking behavior</h3>
     <p>Five customer questions use the selected assistant’s tools and synthetic records. Separate permission checks exercise the protected reference. Fixture model · No API cost.</p>
-    {!id && <button className="export-button" disabled={start.isPending} onClick={() => start.mutate(requestId)}>
-      {start.isPending ? 'Starting…' : 'Run banking checks'}
+    {(!id || (!active && (data || state.error))) && <button className="export-button"
+      disabled={start.isPending} onClick={startChecks}>
+      {start.isPending ? 'Starting…' : startLabel}
     </button>}
     {(start.error || state.error || cancel.error) && <p role="alert">{(start.error || state.error || cancel.error)?.message}</p>}
-    {!!id && !active && (data || state.error) && <button className="export-button"
-      disabled={start.isPending} onClick={() => start.mutate(crypto.randomUUID())}>
-      Run new checks
-    </button>}
+    {state.error && <button className="export-button" disabled={state.isFetching}
+      onClick={() => state.refetch()}>Retry loading assessment</button>}
     {data && <p role="status">Assessment {data.status}</p>}
     {active && <button onClick={() => cancel.mutate()} disabled={cancel.isPending}>Cancel assessment</button>}
     {data?.report && <>
       <h4>Customer questions</h4>
-      <ul>{data.report.benign.map(r => <li key={r.case_id}>{r.case_id?.replaceAll('-', ' ')} — {r.outcome}</li>)}</ul>
+      <ul>{data.report.benign.map(result => <CheckResult key={result.case_id} result={result} onInspectRun={onInspectRun} />)}</ul>
       <h4>Reference permission checks</h4>
-      <ul>{data.report.controls.map(r => <li key={r.probe_id}>{r.probe_id?.replaceAll('_', ' ')} — {r.outcome}</li>)}</ul>
+      <ul>{data.report.controls.map(result => <CheckResult key={result.probe_id} result={result} onInspectRun={onInspectRun} />)}</ul>
       <button className="export-button" onClick={download}>Download report</button>
     </>}
     {!!data?.events.length && <details><summary>Assessment progress</summary>
-      <ol>{data.events.map(e => <li key={e.sequence}>{e.type.replaceAll('_', ' ')}</li>)}</ol>
+      <ol>{data.events.map(event => <li key={event.sequence}>{event.type.replaceAll('_', ' ')}</li>)}</ol>
     </details>}
   </section>
 }

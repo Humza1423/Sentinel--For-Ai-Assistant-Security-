@@ -13,3 +13,9 @@ The lifecycle currently serves fixture usefulness and reference control checks. 
 ## Learning notes
 
 FastAPI accepts the request and schedules a background job. SQLite records its state and ordered progress. A context variable carries the cancellation check through the existing assistant graph. LangGraph still controls the model/tool loop. Every fixture question invokes that shared runtime, and deterministic Python checks judge the result. Durable retries, partial evidence and clear labels make the engineering result inspectable even when work stops halfway.
+
+## Follow-up browser and recovery checks
+
+The browser walkthrough ran all five customer cases and four reference controls. Expanding Latest transfer showed its actual question, October 17 answer and 17 evidence events. Inspect this check selected that run in the existing inspector. Frontend tests cover unavailable progress and a lost start response, where retries keep the same request ID.
+
+Backend regressions cover malformed saved configuration and a late worker finishing after restart recovery. Completed assessment run evidence now checks the owning session. Explicit migration destinations prevent custom demo databases from differing from the database the application opens.
