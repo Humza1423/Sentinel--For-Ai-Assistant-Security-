@@ -143,17 +143,20 @@ def execute_assessment(assessment_id):
     token = check_execution.set(check)
     try:
         check()
-        controls = run_control_probes(config, context)
-        for control in controls:
-            progress("reference_control", control)
+        controls = run_control_probes(
+            config, context, on_result=lambda r: progress("reference_control", r)
+        )
 
         def factory(recorder):
             check()
             return BankingFixtureModel()
 
-        benign = run_benign_suite(config=config, context=context, model_factory=factory)
-        for result in benign:
-            progress("benign_case", result)
+        benign = run_benign_suite(
+            config=config,
+            context=context,
+            model_factory=factory,
+            on_result=lambda r: progress("benign_case", r),
+        )
         report = {
             "mode": "fixture_execution",
             "scope": "usefulness_and_reference_controls",

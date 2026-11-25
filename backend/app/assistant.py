@@ -21,6 +21,7 @@ from .bank import (
     VulnerableSnapshotLabRepository,
 )
 from .evidence import EvidenceError, EvidenceRecorder, emit
+from .execution_control import check_execution
 from .gateway import authorize_bank_read
 from .target_contracts import RequestContext
 
@@ -90,6 +91,7 @@ class StrictBankTool(StructuredTool):
 
     @contextmanager
     def _observe(self, tool_input):
+        check_execution.get()()
         if self.evidence is None:
             yield
             return
