@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import BudgetPanel from './BudgetPanel'
 import AssessmentPanel from './AssessmentPanel'
 import IncidentPlayback from './IncidentPlayback'
@@ -76,6 +76,20 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
   const [selectedRun, setSelectedRun] = useState<string | null>(null)
   const [showTarget, setShowTarget] = useState(false)
   const [playback, setPlayback] = useState(false)
+  const assessButton = useRef<HTMLButtonElement>(null)
+  const checksHeading = useRef<HTMLHeadingElement>(null)
+  const returnFocus = useRef<'chat' | 'checks' | null>(null)
+  function closePlayback(destination: 'chat' | 'checks') {
+    returnFocus.current = destination
+    setShowTarget(destination === 'checks')
+    setPlayback(false)
+  }
+  useEffect(() => {
+    if (playback || !returnFocus.current) return
+    const control = returnFocus.current === 'checks' ? checksHeading.current : assessButton.current
+    control?.focus()
+    returnFocus.current = null
+  }, [playback])
   const [lastAttempt, setLastAttempt] = useState<{
     text: string
     requestId: string
@@ -230,7 +244,7 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
             <button
               className={`assistant-bubble ${runId === turn.run_id ? 'selected' : ''}`}
               aria-pressed={runId === turn.run_id}
-              onClick={() => { setSelectedRun(turn.run_id); setPlayback(false) }}
+              onClick={() => { setSelectedRun(turn.run_id); if (playback) closePlayback('chat') }}
             >
               <small>SENTINEL · {turn.status}</small>
               <p>
@@ -325,8 +339,8 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
       )}
     </section>
   )
-  if (playback) return <IncidentPlayback chatPane={chatPane} onReturn={() => setPlayback(false)}
-    onVerify={() => { setShowTarget(true); setPlayback(false) }} />
+  if (playback) return <IncidentPlayback chatPane={chatPane} metered={data?.mode === 'live_execution'}
+    onReturn={() => closePlayback('chat')} onVerify={() => closePlayback('checks')} />
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -391,6 +405,7 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
           </span>
           <button
             disabled={busy || !data}
+            ref={assessButton}
             onClick={() => setPlayback(true)}
             className="export-button"
           >
@@ -402,7 +417,7 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
             className="target-preview"
             aria-label="Selected assessment target"
           >
-            <b>Selected assistant</b>
+            <h2 ref={checksHeading} tabIndex={-1}>Selected assistant</h2>
             <p>
               Review the selected tools and run saved banking checks below.
             </p>

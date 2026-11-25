@@ -60,3 +60,7 @@
 .incident-footnote a {color:var(--forest);text-decoration:underline;}
 @font-face {font-family:'Bricolage Grotesque';src:url('./assets/type/bricolage-bold.woff2') format('woff2');font-weight:700;font-style:normal;font-display:swap;}
 @font-face {font-family:'Instrument Sans';src:url('./assets/type/instrument-variable.woff2') format('woff2');font-weight:400 700;font-style:normal;font-display:swap;}
+.incident-mode {padding:14px 16px;border-bottom:1px solid var(--rule);color:var(--forest);}
+.incident-mode p {margin:4px 0 0;font-size:13px;}
+.incident h1:focus {outline:none;}
+@media (prefers-reduced-motion:reduce) { .incident-status {animation:none;} }

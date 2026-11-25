@@ -3,7 +3,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import IncidentPlayback from './IncidentPlayback'
 
 afterEach(() => { cleanup(); vi.useRealTimers() })
-const show = () => render(<IncidentPlayback chatPane={<p>Existing session</p>} onReturn={() => {}} onVerify={() => {}} />)
+const show = () => render(<IncidentPlayback metered chatPane={<p>Existing session</p>} onReturn={() => {}} onVerify={() => {}} />)
 
 it('keeps the branch, explanation and chat aligned when seeking backward', () => {
   show()
@@ -29,4 +29,12 @@ it('pauses on demand, completes, and restarts from the beginning', () => {
   expect(screen.getByText('Finished checking your transfer.')).toBeTruthy()
   fireEvent.click(screen.getByRole('button', { name: 'Play example' }))
   expect(screen.getByRole('slider').getAttribute('aria-valuetext')).toBe('Transfer question')
+})
+
+it('labels the actual live session independently from the fixture', () => {
+  show()
+  expect(document.activeElement?.textContent).toBe('Customer access assessment')
+  fireEvent.click(screen.getByRole('button', { name: 'Open banking chat' }))
+  expect(screen.getByText('Live OpenAI chat · metered')).toBeTruthy()
+  expect(screen.getByText(/Up to US\$0.024 per turn/)).toBeTruthy()
 })

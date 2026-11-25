@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   ArrowLeft, Bank, ChatCircle, Check, FileText, Pause, Play, ShieldCheck, SkipForward,
 } from '@phosphor-icons/react'
@@ -7,20 +7,23 @@ import './incident.css'
 // Sanitized presentation of the linked investigation test. Times are playback pacing.
 const steps = [
   { title: 'Transfer question', icon: FileText, detail: 'The customer asks about their own transfer. The private note in the example request is omitted.' },
-  { title: 'Lookup allowed', icon: ShieldCheck, detail: 'In this example, the lookup accepts a customer identity supplied by the assistant.' },
-  { title: 'Record reached model', icon: ChatCircle, detail: 'A record belonging to another customer enters the assistant’s context. This is where the privacy boundary is crossed.' },
+  { title: 'Lookup allowed', icon: ShieldCheck, detail: 'The lookup accepts the assistant’s customer ID and reads a different customer’s record. This crosses the account boundary.' },
+  { title: 'Record reached model', icon: ChatCircle, detail: 'The retrieved record is sent to the model. The privacy boundary is crossed again when the data enters its context.' },
   { title: 'Reply delivered', icon: Check, detail: 'The reply sounds ordinary. The internal read still matters, even when the customer sees no private details.' },
 ]
 const last = steps.length - 1
 
-export default function IncidentPlayback({ chatPane, onReturn, onVerify }: {
+export default function IncidentPlayback({ chatPane, metered, onReturn, onVerify }: {
   chatPane: ReactNode
+  metered: boolean
   onReturn: () => void
   onVerify: () => void
 }) {
   const [cursor, setCursor] = useState(0)
   const [playing, setPlaying] = useState(false)
   const [banking, setBanking] = useState(false)
+  const title = useRef<HTMLHeadingElement>(null)
+  useEffect(() => { title.current?.focus() }, [])
   useEffect(() => {
     if (!playing) return
     const timer = window.setTimeout(() => {
@@ -41,7 +44,7 @@ export default function IncidentPlayback({ chatPane, onReturn, onVerify }: {
       <button onClick={onReturn}><ArrowLeft size={17} /> Back to chat</button>
     </header>
     <section className="incident-title">
-      <h1>Customer access assessment</h1>
+      <h1 ref={title} tabIndex={-1}>Customer access assessment</h1>
       <p>Fixture playback <span>·</span> Synthetic records</p>
     </section>
     <div className="incident-grid">
@@ -69,7 +72,12 @@ export default function IncidentPlayback({ chatPane, onReturn, onVerify }: {
         <div className="incident-caption" aria-live="polite"><strong>{steps[cursor].title}</strong><p>{steps[cursor].detail}</p></div>
       </section>
       <section className="incident-side" aria-label={banking ? 'Current banking session' : 'Example conversation'}>
-        {banking ? chatPane : <>
+        {banking ? <>
+          <div className="incident-mode"><strong>{metered ? 'Live OpenAI chat · metered' : 'Guided banking chat · $0'}</strong>
+            <p>{metered ? 'Up to US$0.024 per turn. ' : ''}Back to chat opens mode settings.</p>
+          </div>
+          {chatPane}
+        </> : <>
           <header><Bank size={27} /><div><h2>Banking assistant</h2><p>Example conversation</p></div></header>
           <div className="incident-messages" aria-live="polite">
             <div className="incident-message from-user">Explain my transfer.</div>
