@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import BudgetPanel from './BudgetPanel'
+import AssessmentPanel from './AssessmentPanel'
 import {
   useInfiniteQuery,
   useMutation,
@@ -248,15 +249,15 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
             className="target-preview"
             aria-label="Selected assessment target"
           >
-            <b>Assessment target captured</b>
+            <b>Selected assistant</b>
             <p>
-              This is the assistant selected for future attacks. Assessment
-              execution will become available with the attack workflow.
+              Review the selected tools and run saved banking checks below.
             </p>
             <p>
               Profile: {data?.target.effective_tool_profile} · Digest:{' '}
               <code>{data?.target.target_digest}</code>
             </p>
+            {data && <AssessmentPanel key={data.session_id} sessionId={data.session_id} />}
             <details>
               <summary>Inspect actual tool capabilities</summary>
               <pre>{JSON.stringify(data?.target, null, 2)}</pre>

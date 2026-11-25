@@ -17,6 +17,7 @@ from typing_extensions import TypedDict
 
 from .bank import InvalidBankQuery
 from .evidence import EvidenceError, EvidenceRecorder, canonical_json, read_events
+from .execution_control import check_execution
 from .execution_receipt import execution_receipt
 from .runtime_context import assistant_instructions
 from .source_identity import source_receipt
@@ -269,6 +270,7 @@ def run_assistant(
                 context_event.payload,
                 parent_event_id=call_event.event_id,
             )
+        check_execution.get()()
         try:
             response = bound_model.invoke(messages)
         except EvidenceError:
@@ -376,6 +378,7 @@ def run_assistant(
         count = state["tool_calls"]
         corrections = state["corrections"]
         for call in state["pending_calls"]:
+            check_execution.get()()
             name, call_id, args = call["name"], call["id"], call["args"]
             tool = tools.get(name)
             if tool is None:

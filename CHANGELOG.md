@@ -1,5 +1,11 @@
 # Changelog
 
+## T14 — Saved local banking assessments
+
+- Added owner-scoped assessment creation, status, cancellation, report export and reconnectable persisted progress.
+- The banking workspace now runs and restores five fixture banking questions and separate reference permission checks.
+- Completed checks remain inspectable after cancellation; interrupted work is retained without automatic reruns.
+
 ## T12 — Clean paired assistant execution
 
 - Added fresh paired runs through the shared runtime, independently recorded execution receipts and explicit configuration differences. Prebuilt control comparisons retain their reference label.

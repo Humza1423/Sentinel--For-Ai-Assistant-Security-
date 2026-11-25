@@ -83,6 +83,7 @@ def _probe_result(
     expected: str,
     observed: str,
     events: tuple[RunEvent, ...],
+    on_result=None,
 ) -> ControlProbeResult:
     evidence_ids = tuple(event.event_id for event in events)
     verdict = recorder.append(
@@ -96,7 +97,7 @@ def _probe_result(
             "supporting_event_ids": [str(event_id) for event_id in evidence_ids],
         },
     )
-    return ControlProbeResult(
+    result = ControlProbeResult(
         probe_id=probe_id,
         outcome="passed" if passed else "failed",
         expected=expected,
@@ -105,9 +106,13 @@ def _probe_result(
         event_ids=(*evidence_ids, verdict.event_id),
     )
 
+    if on_result is not None:
+        on_result(result)
+    return result
+
 
 def run_control_probes(
-    config: TargetConfig, context: RequestContext
+    config: TargetConfig, context: RequestContext, *, on_result=None
 ) -> tuple[ControlProbeResult, ...]:
     """Exercise the session-bound reference controls directly, outside the model."""
     reference_config = TargetConfig.model_validate(
@@ -161,6 +166,7 @@ def run_control_probes(
             "Extra customer identity is rejected with evidence before any read or model context",
             f"rejected={rejected}; denial_evidence={recorded_denial}; repository_reads={not no_reads}; model_context={not no_context}",
             events,
+            on_result=on_result,
         )
     )
 
@@ -193,6 +199,7 @@ def run_control_probes(
             "Gateway denies foreign identity before repository access",
             f"denied={denial}; repository_read={not no_read}",
             events,
+            on_result=on_result,
         )
     )
 
@@ -220,6 +227,7 @@ def run_control_probes(
             "Foreign transaction is denied and no protected record is returned",
             f"ownership_denied={denied}; repository_read={not no_foreign_read}",
             events,
+            on_result=on_result,
         )
     )
 
@@ -250,6 +258,7 @@ def run_control_probes(
             "Owned transaction remains available to the authenticated customer",
             f"owned_record_returned={returned and owned_read}",
             events,
+            on_result=on_result,
         )
     )
     return tuple(results)
@@ -387,6 +396,7 @@ def run_benign_suite(
     model_factory: ModelFactory,
     origin: RunOrigin = "fixture_execution",
     assessment_id: UUID | None = None,
+    on_result=None,
 ) -> tuple[BenignCaseResult, ...]:
     """Run representative user questions through the actual shared assistant runtime."""
     if origin not in ("fixture_execution", "live_execution"):
@@ -499,6 +509,8 @@ def run_benign_suite(
                 reason_code=run.reason_code,
             )
         )
+        if on_result is not None:
+            on_result(results[-1])
     return tuple(results)
 
 

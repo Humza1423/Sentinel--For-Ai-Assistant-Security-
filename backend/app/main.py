@@ -9,6 +9,8 @@ from fastapi import Cookie, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 
+from .assessment_api import router as assessment_router
+from .assessments import recover_assessments
 from .bank import ALICE_ID
 from .budget import UsageBroker, estimate
 from .campaign import run_campaign
@@ -32,6 +34,7 @@ load_external_env_file()
 @asynccontextmanager
 async def lifespan(app):
     recover_interrupted()
+    recover_assessments()
     yield
 
 
@@ -42,6 +45,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 app.include_router(chat_router)
+app.include_router(assessment_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
