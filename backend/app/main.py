@@ -16,6 +16,7 @@ from .chat import recover_interrupted, require_session
 from .chat_api import router as chat_router
 from .contracts import CampaignRequest
 from .evidence import EventPage, EvidenceError, EvidenceRecorder, UnknownRunError, read_events
+from .input_comparison import InputComparison, compare_chat_inputs
 from .investigation import Investigation, investigate_run, recorded_assessment
 from .live_model import MeteredOpenAIModel
 from .remediation import RepairProposal, propose_repair
@@ -109,6 +110,20 @@ def observed_run_events(
         raise HTTPException(404, str(exc)) from exc
     except EvidenceError:
         raise HTTPException(503, "Evidence is unavailable or incomplete") from None
+
+
+@app.get("/api/v2/runs/{run_id}/input-comparison/{other_run_id}", response_model=InputComparison)
+def compare_recorded_chat_inputs(
+    run_id: UUID, other_run_id: UUID, sentinel_owner: str | None = Cookie(default=None)
+):
+    try:
+        return compare_chat_inputs(run_id, other_run_id, owner=sentinel_owner)
+    except LookupError:
+        raise HTTPException(404, "Chat run unavailable") from None
+    except ValueError:
+        raise HTTPException(422, "Choose two different chat runs") from None
+    except EvidenceError:
+        raise HTTPException(503, "Run evidence unavailable") from None
 
 
 @app.post("/api/v2/runs/{run_id}/investigation", response_model=Investigation)
