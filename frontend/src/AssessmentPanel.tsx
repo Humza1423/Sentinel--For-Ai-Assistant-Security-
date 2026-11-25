@@ -22,8 +22,8 @@ export default function AssessmentPanel({ sessionId }: { sessionId: string }) {
     retry: false,
   })
   const start = useMutation({
-    mutationFn: () => api<Assessment>('/api/v2/assessments', {
-      method: 'POST', body: JSON.stringify({ session_id: sessionId, request_id: requestId }),
+    mutationFn: (nextRequestId: string) => api<Assessment>('/api/v2/assessments', {
+      method: 'POST', body: JSON.stringify({ session_id: sessionId, request_id: nextRequestId }),
     }),
     onSuccess: (data) => {
       localStorage.setItem(`sentinel-assessment-${sessionId}`, data.assessment_id)
@@ -48,10 +48,14 @@ export default function AssessmentPanel({ sessionId }: { sessionId: string }) {
   return <section aria-label="Banking assessment">
     <h3>Check everyday banking behavior</h3>
     <p>Five customer questions use the selected assistant’s tools and synthetic records. Separate permission checks exercise the protected reference. Fixture model · No API cost.</p>
-    {!id && <button className="export-button" disabled={start.isPending} onClick={() => start.mutate()}>
+    {!id && <button className="export-button" disabled={start.isPending} onClick={() => start.mutate(requestId)}>
       {start.isPending ? 'Starting…' : 'Run banking checks'}
     </button>}
     {(start.error || state.error || cancel.error) && <p role="alert">{(start.error || state.error || cancel.error)?.message}</p>}
+    {!!id && !active && (data || state.error) && <button className="export-button"
+      disabled={start.isPending} onClick={() => start.mutate(crypto.randomUUID())}>
+      Run new checks
+    </button>}
     {data && <p role="status">Assessment {data.status}</p>}
     {active && <button onClick={() => cancel.mutate()} disabled={cancel.isPending}>Cancel assessment</button>}
     {data?.report && <>
