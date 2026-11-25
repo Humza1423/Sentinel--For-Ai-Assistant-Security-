@@ -257,7 +257,7 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
               Profile: {data?.target.effective_tool_profile} · Digest:{' '}
               <code>{data?.target.target_digest}</code>
             </p>
-            {data && <AssessmentPanel key={data.session_id} sessionId={data.session_id} />}
+            {data && <AssessmentPanel key={data.session_id} sessionId={data.session_id} onInspectRun={setSelectedRun} />}
             <details>
               <summary>Inspect actual tool capabilities</summary>
               <pre>{JSON.stringify(data?.target, null, 2)}</pre>
