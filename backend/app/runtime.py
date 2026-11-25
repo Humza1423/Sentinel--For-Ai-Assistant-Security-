@@ -17,6 +17,7 @@ from typing_extensions import TypedDict
 
 from .bank import InvalidBankQuery
 from .evidence import EvidenceError, EvidenceRecorder, canonical_json, read_events
+from .execution_receipt import execution_receipt
 from .runtime_context import assistant_instructions
 from .source_identity import source_receipt
 from .target_contracts import RequestContext, TargetConfig
@@ -165,6 +166,9 @@ def run_assistant(
         "request.received",
         "user",
         {
+            "execution_receipt": execution_receipt(
+                config, context, user_message, history, schemas, memo_overlay_run_id
+            ),
             "user_message": user_message,
             "source_receipt": source_receipt(),
             "target_digest": target.manifest().target_digest,
@@ -175,6 +179,7 @@ def run_assistant(
             "memo_overlay_run_id": memo_overlay_run_id,
         },
         provenance={
+            "execution_receipt": "system_trusted",
             "user_message": "authenticated_user",
             "source_receipt": "system_trusted",
             "target_digest": "system_trusted",
