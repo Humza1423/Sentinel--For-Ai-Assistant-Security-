@@ -144,3 +144,16 @@ def test_finalization_cannot_replace_a_terminal_report_or_restart_decision():
     interrupted = assessments.read_assessment(another, owner)
     assessments.finish(another, "complete", {"late_worker": True})
     assert assessments.read_assessment(another, owner) == interrupted
+
+
+def test_assessment_check_evidence_requires_its_owner():
+    sid, owner = setup()
+    aid, _ = assessments.create_assessment(sid, owner, str(uuid4()))
+    assessments.execute_assessment(aid)
+    state = assessments.read_assessment(aid, owner)
+    run_id = state["report"]["benign"][0]["run_id"]
+    with TestClient(app) as client:
+        url = f"/api/v2/runs/{run_id}/events"
+        assert client.get(url).status_code == 404
+        client.cookies.set("sentinel_owner", owner)
+        assert client.get(url).status_code == 200
