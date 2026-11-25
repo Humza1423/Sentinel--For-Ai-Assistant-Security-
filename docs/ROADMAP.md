@@ -31,7 +31,7 @@ Each approved ticket has its own tests, learning review, and PR to protected mai
 | T19 | Tailored phishing attacks and observed scoring | T11–T13, T18 | Planned |
 | T20 | Phishing proof UI and both-family regression suite | T16, T19 | Planned |
 | T21 | Investigator Agent and evidence-linked root cause | T03, T10–T11 | Complete; [revision-linked investigation](T21_EVIDENCE.md) |
-| T22 | Defense Agent and structured RemediationPlan | T08, T21 | Planned |
+| T22 | Defense Agent and structured RemediationPlan | T08, T21 | Complete; [evidence-linked proposals](T22_EVIDENCE.md) |
 | T23 | Isolated Git workspace and restricted execution | T14, T22, supported sandbox | Planned |
 | T24 | Coding Agent and validated patch application | T08, T23 | Planned |
 | T25 | Candidate security, benign and replay verification | T12–T13, T24 | Planned |

@@ -1,5 +1,9 @@
 # Changelog
 
+## T22 — Propose an evidence-linked repair
+
+- Added reviewable proposals for investigated cross-customer findings. Each proposal carries its source revision, change scope, expected effect, usability risk, and verification requirements.
+
 ## T21 — Explain recorded cross-customer findings
 
 - New assistant runs record a source receipt. Investigation reports cite the original revision and distinguish observed reads, model context, and delivered answers.

@@ -18,6 +18,7 @@ from .contracts import CampaignRequest
 from .evidence import EventPage, EvidenceError, EvidenceRecorder, UnknownRunError, read_events
 from .investigation import Investigation, investigate_run, recorded_assessment
 from .live_model import MeteredOpenAIModel
+from .remediation import RepairProposal, propose_repair
 from .scenarios import SCENARIOS
 from .settings import load_external_env_file
 from .store import ChatTurnRow, Session, get_events, get_report, save_report
@@ -119,17 +120,41 @@ def investigate_observed_run(
     require_run_access(run_id, sentinel_owner)
     if mode == "offline":
         return investigate_run(run_id)
+    model = create_analysis_model(run_id)
+    try:
+        return investigate_run(run_id, model=model)
+    finally:
+        model.close()
+
+
+def create_analysis_model(run_id: UUID):
     assessment_id = recorded_assessment(run_id)
     if assessment_id is None:
         raise HTTPException(409, "Live analysis requires a run with an existing assessment budget")
     try:
-        model = MeteredOpenAIModel(
+        return MeteredOpenAIModel(
             TargetModelConfig(), EvidenceRecorder(run_id), assessment_id=assessment_id
         )
     except ValueError:
-        raise HTTPException(503, "Investigator provider unavailable") from None
+        raise HTTPException(503, "Analysis provider unavailable") from None
+
+
+@app.post(
+    "/api/v2/runs/{run_id}/investigations/{investigation_event_id}/repair-proposal",
+    response_model=RepairProposal,
+)
+def request_repair_proposal(
+    run_id: UUID,
+    investigation_event_id: UUID,
+    mode: Literal["offline", "live"] = "offline",
+    sentinel_owner: str | None = Cookie(default=None),
+):
+    require_run_access(run_id, sentinel_owner)
+    if mode == "offline":
+        return propose_repair(run_id, investigation_event_id)
+    model = create_analysis_model(run_id)
     try:
-        return investigate_run(run_id, model=model)
+        return propose_repair(run_id, investigation_event_id, model=model)
     finally:
         model.close()
 

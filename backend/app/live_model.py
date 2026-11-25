@@ -149,19 +149,27 @@ class MeteredOpenAIModel:
         """One read-only analysis using the assessment's existing budget."""
         from .investigation import Hypothesis
 
+        return self._invoke_analysis(messages, Hypothesis, "investigator", "investigation")
+
+    def invoke_defense(self, messages):
+        from .remediation import RemediationPlan
+
+        return self._invoke_analysis(messages, RemediationPlan, "defense", "remediation_plan")
+
+    def _invoke_analysis(self, messages, schema, role, name):
         if self.assessment_id is None:
             raise ValueError("Live investigations require an assessment budget")
         bound = self.model.bind(
             response_format={
                 "type": "json_schema",
                 "json_schema": {
-                    "name": "investigation",
+                    "name": name,
                     "strict": True,
-                    "schema": Hypothesis.model_json_schema(),
+                    "schema": schema.model_json_schema(),
                 },
             }
         )
-        return self._invoke_bound(messages, bound, role="investigator")
+        return self._invoke_bound(messages, bound, role=role)
 
     def invoke_attack(self, messages):
         """Structured attacker output through the same transport and usage ledger."""
