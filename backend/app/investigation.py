@@ -84,7 +84,28 @@ def _scope_chain(events, read_ids, customer):
             and owner in read.payload.get("record_owners", [])
             and decision.sequence < effective.sequence < read.sequence
         ):
-            return [decision.event_id, effective.event_id, read.event_id]
+            requested = by_id.get(decision.parent_event_id)
+            if not requested or requested.name != "tool.requested":
+                continue
+            proposed = by_id.get(requested.parent_event_id)
+            args = requested.payload.get("requested_arguments")
+            if (
+                proposed
+                and proposed.name == "model.responded"
+                and proposed.payload.get("outcome") == "tool_calls"
+                and proposed.sequence < requested.sequence < decision.sequence
+                and isinstance(args, dict)
+                and args.get("customer_id") == owner
+                and any(
+                    isinstance(call, dict)
+                    and call.get("args") == args
+                    and call.get("name") == requested.payload.get("tool_name")
+                    for call in proposed.payload.get("tool_calls") or []
+                )
+            ):
+                return [
+                    event.event_id for event in (proposed, requested, decision, effective, read)
+                ]
     return []
 
 
@@ -192,11 +213,19 @@ def investigate_run(run_id: UUID, *, model=None, target_config: TargetConfig | N
     else:
         packet = {
             "facts": [f.model_dump(mode="json") for f in result.facts],
-            "scope_chain": [str(i) for i in chain],
-            "scope_observations": [
-                "allowed",
-                "identity supplied by model",
-                "different owner's record returned",
+            "scope_chain": [
+                {"event_id": str(event_id), "observation": observation}
+                for event_id, observation in zip(
+                    chain,
+                    (
+                        "The model proposed a lookup using a different customer identity.",
+                        "The tool received that same lookup.",
+                        "The gateway allowed that requested identity.",
+                        "The effective customer came from the model argument.",
+                        "The database returned a record owned by the requested customer.",
+                    ),
+                    strict=True,
+                )
             ],
             "source": [s.model_dump() for s in result.sources],
         }

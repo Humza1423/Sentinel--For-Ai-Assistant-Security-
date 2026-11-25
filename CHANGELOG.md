@@ -1,5 +1,10 @@
 # Changelog
 
+## T21 — Explain recorded cross-customer findings
+
+- New assistant runs record a source receipt. Investigation reports cite the original revision and distinguish observed reads, model context, and delivered answers.
+- Added an offline investigation endpoint and optional metered analysis under the original assessment budget. The existing Luna rate card was reverified on November 25.
+
 ## T13 — direct controls and benign assistant evaluation
 
 - Added a reusable Python evaluator for real protected-profile control probes and

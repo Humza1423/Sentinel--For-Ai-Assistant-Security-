@@ -16,7 +16,8 @@ PROJECT_LIMIT = 45_000_000
 ASSESSMENT_LIMIT = 2_000_000
 PRICE_VERSION = "openai-luna-standard-short-2026-10-24"
 PRICE_SOURCE = "https://developers.openai.com/api/docs/models/gpt-6-luna"
-VERIFIED_ON = date(2026, 10, 24)
+# Same rate card, rechecked against the standard short-context pricing table.
+VERIFIED_ON = date(2026, 11, 25)
 # Micro-USD per million tokens: input, cached input, 30m/12h writes, output.
 RATES = (100_000, 10_000, 125_000, 250_000, 500_000)
 

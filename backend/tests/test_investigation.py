@@ -132,3 +132,25 @@ def test_benign_and_missing_run_have_distinct_outcomes_without_calling_an_analys
     missing = investigate_run(uuid4(), model=model)
     assert missing.status == "insufficient_evidence" and missing.hypothesis is None
     assert not model.inputs
+
+
+def test_missing_model_parent_cannot_explain_a_read(observed_finding):
+    from app.investigation import _scope_chain
+
+    run, ctx = observed_finding
+    events = read_events(run.run_id).events
+    read = next(e for e in events if e.name == "repository.read_completed")
+    without_model = [e for e in events if e.name != "model.responded"]
+    assert not _scope_chain(without_model, [read.event_id], ctx.authenticated_customer_id)
+
+
+def test_investigation_api_defaults_to_offline_and_requires_budget_for_live(observed_finding):
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    run, _ = observed_finding
+    url = f"/api/v2/runs/{run.run_id}/investigation"
+    with TestClient(app) as client:
+        assert client.post(url).json()["status"] == "explained"
+        assert client.post(url, params={"mode": "live"}).status_code == 409

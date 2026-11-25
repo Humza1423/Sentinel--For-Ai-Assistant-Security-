@@ -1,6 +1,7 @@
 """Real LangChain Responses serialization over a mock wire, never a paid client."""
 
 import json
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import httpx
@@ -72,7 +73,9 @@ def setup_model(monkeypatch, broker, handler):
 
 
 @pytest.fixture
-def broker(tmp_path):
+def broker(tmp_path, monkeypatch):
+    # Mock-wire tests use a current test card; expiry is independently tested in test_budget.
+    monkeypatch.setattr("app.budget.VERIFIED_ON", datetime.now(UTC).date())
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
 
@@ -379,3 +382,42 @@ def test_quota_and_transient_limits_are_distinct_and_sanitized(
     serialized = json.dumps([e.model_dump(mode="json") for e in run_events(str(recorder.run_id))])
     assert "private-provider-detail" not in serialized
     assert "test-placeholder" not in serialized
+
+
+def test_investigator_wire_validates_structured_response_and_accounts_for_usage(
+    monkeypatch, broker
+):
+    from app.investigation import Hypothesis
+
+    event_id = uuid4()
+    proposal = {
+        "explanation": "The authorized scope differed from the session.",
+        "event_ids": [str(event_id)],
+        "source_ids": ["gateway.scope"],
+    }
+
+    def handler(request):
+        body = json.loads(request.content)
+        assert body["text"]["format"]["name"] == "investigation"
+        assert body["text"]["format"]["strict"]
+        assert not body.get("tools")
+        output = final()
+        output[0]["content"][0]["text"] = json.dumps(proposal)
+        return response(output)
+
+    _, _, model = setup_model(monkeypatch, broker, handler)
+    try:
+        with pytest.raises(ValueError, match="assessment"):
+            model.invoke_investigation([])
+        model.assessment_id = uuid4()
+        message = model.invoke_investigation([("user", "Explain the recorded scope decision")])
+        assert Hypothesis.model_validate_json(message.text).event_ids == [event_id]
+        with broker.sessions() as db:
+            charge = db.scalars(select(UsageChargeRow)).one()
+            assert (charge.role, charge.status, charge.assessment_id) == (
+                "investigator",
+                "settled",
+                str(model.assessment_id),
+            )
+    finally:
+        model.close()
