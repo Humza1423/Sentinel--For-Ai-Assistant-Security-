@@ -114,3 +114,33 @@ def test_completed_benign_result_survives_later_cancellation(monkeypatch):
     completed = [e for e in state["events"] if e["type"] == "benign_case"]
     assert len(completed) == 1
     assert completed[0]["result"]["run_id"] and completed[0]["result"]["event_ids"]
+
+
+def test_invalid_saved_configuration_fails_without_blocking_future_assessments():
+    from app.store import AssessmentRow, Session
+
+    sid, owner = setup()
+    aid, _ = assessments.create_assessment(sid, owner, str(uuid4()))
+    with Session.begin() as db:
+        db.get(AssessmentRow, aid).config_json = '{"unavailable_profile": true}'
+    assessments.execute_assessment(aid)
+    state = assessments.read_assessment(aid, owner)
+    assert state["status"] == "failed"
+    assert state["events"][-1]["type"] == "failed"
+    another, _ = assessments.create_assessment(sid, owner, str(uuid4()))
+    assessments.cancel_assessment(another, owner)
+
+
+def test_finalization_cannot_replace_a_terminal_report_or_restart_decision():
+    sid, owner = setup()
+    aid, _ = assessments.create_assessment(sid, owner, str(uuid4()))
+    assessments.execute_assessment(aid)
+    completed = assessments.read_assessment(aid, owner)
+    assessments.finish(aid, "failed")
+    assert assessments.read_assessment(aid, owner) == completed
+
+    another, _ = assessments.create_assessment(sid, owner, str(uuid4()))
+    assessments.recover_assessments()
+    interrupted = assessments.read_assessment(another, owner)
+    assessments.finish(another, "complete", {"late_worker": True})
+    assert assessments.read_assessment(another, owner) == interrupted

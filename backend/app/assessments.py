@@ -117,15 +117,12 @@ def execute_assessment(assessment_id):
             return
         row.status = "running"
         _event(db, row, "started")
-        config = TargetConfig.model_validate_json(row.config_json)
+        config_json = row.config_json
         from .store import ChatSessionRow
 
         session = db.get(ChatSessionRow, row.session_id)
-        context = RequestContext(
-            session_id=row.session_id,
-            authenticated_customer_id=session.customer_id,
-            request_id=str(uuid4()),
-        )
+        customer_id = session.customer_id
+        session_id = row.session_id
 
     def check():
         with Session() as db:
@@ -143,6 +140,12 @@ def execute_assessment(assessment_id):
     token = check_execution.set(check)
     try:
         check()
+        config = TargetConfig.model_validate_json(config_json)
+        context = RequestContext(
+            session_id=session_id,
+            authenticated_customer_id=customer_id,
+            request_id=str(uuid4()),
+        )
         controls = run_control_probes(
             config, context, on_result=lambda r: progress("reference_control", r)
         )
@@ -177,6 +180,8 @@ def finish(assessment_id, status, report=None):
     with Session.begin() as db:
         db.connection().exec_driver_sql("BEGIN IMMEDIATE")
         row = db.get(AssessmentRow, assessment_id)
+        if row is None or row.status not in ACTIVE:
+            return
         row.status = "cancelled" if row.cancel_requested else status
         row.report_json = json.dumps(report) if report and row.status == "complete" else None
         _event(db, row, row.status)
