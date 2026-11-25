@@ -1,5 +1,9 @@
 # Changelog
 
+## T12 — Compare recorded chat inputs
+
+- Engineers can compare the first model dispatch from two of their completed chat turns and inspect which inputs matched, changed or lack evidence.
+
 ## T22 — Propose an evidence-linked repair
 
 - Added reviewable proposals for investigated cross-customer findings. Each proposal carries its source revision, change scope, expected effect, usability risk, and verification requirements.

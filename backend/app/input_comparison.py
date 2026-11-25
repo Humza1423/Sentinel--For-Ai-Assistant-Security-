@@ -57,9 +57,13 @@ def _observations(run_id, turn):
     observed = {"execution_mode": (origin, ids)}
     for field, key in (("customer", "authenticated_customer_id"), ("target", "target_digest")):
         value = payload.get(key)
-        if req.provenance.get(key) == "system_trusted" and isinstance(value, str) and value:
-            if field != "target" or _digest(value):
-                observed[field] = (value, ids)
+        if (
+            req.provenance.get(key) == "system_trusted"
+            and isinstance(value, str)
+            and value
+            and (field != "target" or _digest(value))
+        ):
+            observed[field] = (value, ids)
     receipt = payload.get("source_receipt")
     if (
         req.provenance.get("source_receipt") == "system_trusted"
