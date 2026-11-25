@@ -7,9 +7,16 @@ from uuid import uuid4
 from sqlalchemy import select
 
 from .chat import require_session
-from .evaluation import run_benign_suite, run_control_probes
+from .evaluation import run_benign_suite, run_control_probes, run_session_bound_probes
 from .execution_control import ExecutionCancelled, check_execution, on_run_started
 from .fixture_model import BankingFixtureModel
+from .registered_verification import (
+    compare_banking_cases,
+    copy_with_session_binding,
+    inspect_customer_scope,
+    recommend_session_binding,
+    verification_outcome,
+)
 from .store import AssessmentEventRow, AssessmentRow, Session
 from .target_contracts import RequestContext, TargetConfig
 
@@ -135,7 +142,12 @@ def execute_assessment(assessment_id):
         with Session.begin() as db:
             db.connection().exec_driver_sql("BEGIN IMMEDIATE")
             row = db.get(AssessmentRow, assessment_id)
-            _event(db, row, kind, result=result.model_dump(mode="json"))
+            _event(
+                db,
+                row,
+                kind,
+                result=result if isinstance(result, dict) else result.model_dump(mode="json"),
+            )
 
     def record_run(run_id):
         # Link ownership before any tool/model content is recorded, including runs
@@ -155,9 +167,21 @@ def execute_assessment(assessment_id):
             authenticated_customer_id=customer_id,
             request_id=str(uuid4()),
         )
-        controls = run_control_probes(
-            config, context, on_result=lambda r: progress("reference_control", r)
-        )
+        inspection = inspect_customer_scope(config, context)
+        progress("baseline_scope_checked", inspection)
+        recommendation = recommend_session_binding(inspection)
+        if recommendation:
+            progress("defense_recommended", recommendation)
+            candidate_config = copy_with_session_binding(config)
+            candidate_scope = inspect_customer_scope(candidate_config, context)
+            progress("candidate_scope_checked", candidate_scope)
+            controls = run_session_bound_probes(
+                candidate_config, context, on_result=lambda r: progress("reference_control", r)
+            )
+        else:
+            controls = run_control_probes(
+                config, context, on_result=lambda r: progress("reference_control", r)
+            )
 
         def factory(recorder):
             check()
@@ -176,6 +200,31 @@ def execute_assessment(assessment_id):
             "controls": [r.model_dump(mode="json") for r in controls],
             "benign": [r.model_dump(mode="json") for r in benign],
         }
+        report["baseline_scope"] = inspection
+        report["recommendation"] = recommendation
+        if recommendation:
+            candidate = run_benign_suite(
+                config=candidate_config,
+                context=context,
+                model_factory=factory,
+                on_result=lambda r: progress("candidate_benign_case", r),
+            )
+            comparisons = compare_banking_cases(benign, candidate)
+            report["verification"] = {
+                "status": verification_outcome(
+                    candidate_scope, controls, benign, candidate, comparisons
+                ),
+                "candidate_scope": candidate_scope,
+                "configuration_change": {
+                    "defense_presets": {
+                        "before": list(config.defense_presets),
+                        "after": list(candidate_config.defense_presets),
+                    }
+                },
+                "candidate_benign": [r.model_dump(mode="json") for r in candidate],
+                "comparisons": comparisons,
+            }
+            progress("verification_completed", {"outcome": report["verification"]["status"]})
         finish(assessment_id, "complete", report)
     except ExecutionCancelled:
         finish(assessment_id, "cancelled")

@@ -123,6 +123,16 @@ def run_control_probes(
             "defense_presets": (),
         }
     )
+    return run_session_bound_probes(reference_config, context, on_result=on_result)
+
+
+def run_session_bound_probes(
+    config: TargetConfig, context: RequestContext, *, on_result=None
+) -> tuple[ControlProbeResult, ...]:
+    """Exercise direct permissions on the supplied resolved session-bound target."""
+    manifest = resolve_target(config, context=context).manifest()
+    if not manifest.customer_access.repository_scope_enforced:
+        raise ValueError("Direct probes require session-bound customer tools")
     repository = SnapshotBankRepository()
     foreign_customer_id = BOB_ID if context.authenticated_customer_id != BOB_ID else ALICE_ID
     foreign = next(
@@ -137,7 +147,7 @@ def run_control_probes(
 
     # The model-facing protected tool must reject an extra identity before any read.
     recorder = EvidenceRecorder.start(origin="direct_execution")
-    target = resolve_target(reference_config, context=context, evidence=recorder)
+    target = resolve_target(config, context=context, evidence=recorder)
     latest_tool = next(
         tool for tool in target.bank_profile.tools if tool.name == "get_my_latest_transaction"
     )
@@ -205,7 +215,7 @@ def run_control_probes(
 
     # A foreign transaction ID cannot cross the independent repository boundary.
     recorder = EvidenceRecorder.start(origin="direct_execution")
-    target = resolve_target(reference_config, context=context, evidence=recorder)
+    target = resolve_target(config, context=context, evidence=recorder)
     detail_tool = next(
         tool for tool in target.bank_profile.tools if tool.name == "get_my_transaction"
     )
@@ -233,7 +243,7 @@ def run_control_probes(
 
     # Positive control: the same repository still returns an owned record.
     recorder = EvidenceRecorder.start(origin="direct_execution")
-    target = resolve_target(reference_config, context=context, evidence=recorder)
+    target = resolve_target(config, context=context, evidence=recorder)
     detail_tool = next(
         tool for tool in target.bank_profile.tools if tool.name == "get_my_transaction"
     )
