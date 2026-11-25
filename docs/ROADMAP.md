@@ -21,7 +21,7 @@ Each approved ticket has its own tests, learning review, and PR to protected mai
 | T09 | Live Responses adapter and explicit smoke check | T05, T08 | Complete; live chat acceptance and correction pass recorded |
 | T10 | Cross-customer scorer driven by observed events | T02, T05 | Complete; linked run evidence, no model verdicts |
 | T11 | Manifest-based surface analysis and bounded attacker | T01, T08–T10 | Complete; isolated memo trials and exposed/not-exposed evidence |
-| T12 | Clean paired execution against a candidate revision | T11, T13, T22 | Partial; [recorded chat comparison](T12_EVIDENCE.md); paired execution pending |
+| T12 | Clean paired execution against a candidate revision | T11, T13, T22 | Complete; [independent paired runtime inputs](T12_EVIDENCE.md); source-patch execution follows isolation |
 | T13 | Direct control probes and actual benign-agent queries | T03, T05, T10 | Complete; controls and usefulness evaluated separately |
 | T14 | Assessment lifecycle, cancellation, persisted SSE | T12–T13 | Planned |
 | T15 | Investigation, diff and evidence proof workspace | T07, T14, T21–T22, T25 | Planned |

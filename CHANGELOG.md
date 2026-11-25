@@ -1,5 +1,9 @@
 # Changelog
 
+## T12 — Clean paired assistant execution
+
+- Added fresh paired runs through the shared runtime, independently recorded execution receipts and explicit configuration differences. Prebuilt control comparisons retain their reference label.
+
 ## T12 — Compare recorded chat inputs
 
 - Engineers can compare the first model dispatch from two of their completed chat turns and inspect which inputs matched, changed or lack evidence.

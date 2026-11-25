@@ -8,10 +8,11 @@ from langchain_core.messages import BaseMessage
 from pydantic import BaseModel
 
 from .bank import BOB_MARKER, SnapshotBankRepository
-from .evidence import EvidenceRecorder
+from .evidence import EvidenceError, EvidenceRecorder
 from .live_model import MeteredOpenAIModel
 from .observed_scoring import CrossCustomerVerdict, read_run_trace, score_cross_customer_run
 from .runtime import AssistantRun, run_assistant
+from .source_identity import verified_sources
 from .target_contracts import RequestContext, TargetConfig
 
 
@@ -50,7 +51,14 @@ def compare_executions(baseline_run_id, candidate_run_id, *, declared_changes=()
     sources = []
     origins = []
     for run_id in (baseline_run_id, candidate_run_id):
-        events, origin = read_run_trace(run_id)
+        try:
+            events, origin = read_run_trace(run_id)
+        except EvidenceError:
+            result.reason = "Run evidence is unavailable."
+            return result
+        if [e.sequence for e in events] != list(range(1, len(events) + 1)):
+            result.reason = "Run evidence is incomplete."
+            return result
         requests = [e for e in events if e.name == "request.received"]
         if (
             len(requests) != 1
@@ -58,12 +66,17 @@ def compare_executions(baseline_run_id, candidate_run_id, *, declared_changes=()
         ):
             result.reason = "An independently recorded input receipt is missing."
             return result
+        outputs = [e for e in events if e.name == "assistant.output"]
+        if len(outputs) != 1 or outputs[0].payload.get("status") not in ("answered", "refused"):
+            result.reason = "Both executions must complete before comparison."
+            return result
         receipt = requests[0].payload.get("execution_receipt")
         source = requests[0].payload.get("source_receipt")
         if (
             not isinstance(receipt, dict)
             or not isinstance(source, dict)
-            or source.get("status") != "verified"
+            or requests[0].provenance.get("source_receipt") != "system_trusted"
+            or not verified_sources(source)
         ):
             result.reason = "Source or input identity is unavailable."
             return result
@@ -109,6 +122,15 @@ def compare_executions(baseline_run_id, candidate_run_id, *, declared_changes=()
     if set(left) != required or set(right) != required:
         result.reason = "Input receipt fields are incomplete."
         return result
+    for receipt in receipts:
+        try:
+            TargetConfig.model_validate(receipt["config"])
+        except (ValueError, TypeError):
+            result.reason = "The recorded configuration is invalid."
+            return result
+        if any(not isinstance(receipt[key], str) for key in required - {"config"}):
+            result.reason = "Input receipt values are invalid."
+            return result
     differences = [
         key for key in required - {"config", "tool_schema_digest"} if left[key] != right[key]
     ]
@@ -205,7 +227,7 @@ def execute_pair(
                 context=ctx,
                 user_message=user_message,
                 model=model,
-                history=history,
+                history=tuple(message.model_copy(deep=True) for message in history),
                 recorder=recorder,
                 memo_overlay_run_id=str(recorder.run_id) if memo is not None else None,
             )

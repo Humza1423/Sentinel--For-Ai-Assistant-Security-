@@ -71,3 +71,28 @@ def test_error_cannot_demonstrate_repair_and_config_differences_are_explicit():
     assert result.baseline.status == "error"
     assert result.comparison.status == "inconclusive"
     assert not result.repair_verified
+
+
+def test_independent_receipts_detect_changed_request_history_and_declaration():
+    from langchain_core.messages import HumanMessage
+
+    from app.evidence import EvidenceRecorder
+    from app.runtime import run_assistant
+
+    args = case()
+    first = execute_pair(**args)
+    recorder = EvidenceRecorder.start(origin="fixture_execution")
+    changed = run_assistant(
+        config=args["baseline_config"],
+        context=args["context"],
+        user_message="A different request",
+        history=(HumanMessage(content="Earlier context"),),
+        model=ToolFake(responses=[final()]),
+        recorder=recorder,
+    )
+    comparison = compare_executions(first.baseline.run_id, changed.run_id)
+    assert comparison.status == "mismatched"
+    assert {"user_digest", "history_digest", "consumed_messages", "memo_digest"} <= set(
+        comparison.unexpected_fields
+    )
+    assert compare_executions(changed.run_id, changed.run_id).status == "inconclusive"
