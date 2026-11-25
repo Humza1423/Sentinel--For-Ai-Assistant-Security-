@@ -1,5 +1,9 @@
 # Changelog
 
+## T14 — Verify a registered defense
+
+- Inspect customer identity capabilities and compare the selected target with an independent copy using the session-bound defense. Record direct permission tests and matched banking cases before assigning a verification result.
+
 ## T14 — Assessment recovery and evidence inspection
 
 - Saved checks now expand into actual questions, responses and an evidence inspector. Connection failures support loading and idempotent start retries.

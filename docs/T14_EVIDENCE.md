@@ -19,3 +19,11 @@ FastAPI accepts the request and schedules a background job. SQLite records its s
 The browser walkthrough ran all five customer cases and four reference controls. Expanding Latest transfer showed its actual question, October 17 answer and 17 evidence events. Inspect this check selected that run in the existing inspector. Frontend tests cover unavailable progress and a lost start response, where retries keep the same request ID.
 
 Backend regressions cover malformed saved configuration and a late worker finishing after restart recovery. Completed assessment run evidence now checks the owning session. Explicit migration destinations prevent custom demo databases from differing from the database the application opens.
+
+## Registered defense verification
+
+The assessment inspects the actual tool schema and effective identity policy. If the model can choose a customer identity, a capability finding links to the inspection event. A likely cause and a versioned session-binding recommendation are recorded alongside that finding. Source locations are available when the run can verify its checkout. The capability check makes no claim that a model accessed or disclosed a foreign record.
+
+The worker applies the registered defense to a separate configuration. The selected chat remains available with its original configuration. It inspects the candidate with the same capability rule and runs four direct permission probes against that candidate. Both configurations answer the same five banking questions with independent fixture models. The existing receipt comparator checks that only the declared defense preset differs. A passing result requires session binding, all four permission probes, five passing candidate answers, and five matched comparisons. Missing or failed checks never count as a pass.
+
+Historical assessments retain their original scope and report fields. This path proves the listed controls and ordinary-use checks. The observed-run Investigator and Defense Agent APIs remain available for existing evidence, and generated code is a later release.
