@@ -96,3 +96,54 @@ def test_independent_receipts_detect_changed_request_history_and_declaration():
         comparison.unexpected_fields
     )
     assert compare_executions(changed.run_id, changed.run_id).status == "inconclusive"
+
+
+@pytest.mark.parametrize(
+    "field", ["history_digest", "memo_digest", "snapshot_digest", "customer_id"]
+)
+def test_mismatched_receipt_fields_prevent_match(monkeypatch, field):
+    import app.paired_execution as paired
+
+    result = execute_pair(**case())
+    original = paired.read_run_trace
+
+    def changed_trace(run_id):
+        events, origin = original(run_id)
+        if run_id != result.candidate.run_id:
+            return events, origin
+        altered = []
+        for event in events:
+            if event.name == "request.received":
+                payload = {**event.payload}
+                payload["execution_receipt"] = {**payload["execution_receipt"], field: "0" * 64}
+                event = event.model_copy(update={"payload": payload})
+            altered.append(event)
+        return tuple(altered), origin
+
+    monkeypatch.setattr(paired, "read_run_trace", changed_trace)
+    comparison = compare_executions(
+        result.baseline.run_id, result.candidate.run_id, declared_changes=("tool_profile",)
+    )
+    assert comparison.status != "matched"
+
+
+def test_incomplete_source_and_missing_events_are_inconclusive(monkeypatch):
+    import app.paired_execution as paired
+
+    result = execute_pair(**case())
+    original = paired.read_run_trace
+
+    def incomplete(run_id):
+        events, origin = original(run_id)
+        altered = []
+        for event in events:
+            if event.name == "request.received":
+                payload = {**event.payload, "source_receipt": {"status": "verified"}}
+                event = event.model_copy(update={"payload": payload})
+            altered.append(event)
+        return tuple(altered), origin
+
+    monkeypatch.setattr(paired, "read_run_trace", incomplete)
+    assert (
+        compare_executions(result.baseline.run_id, result.candidate.run_id).status == "inconclusive"
+    )
