@@ -1,5 +1,9 @@
 # Changelog
 
+## T15 — Registered defense evidence workspace
+
+- Show observed customer authority, the likely cause, the recommended control, and the verification result. Compare the selected and defended assistant answers and inspect each run’s evidence.
+
 ## T14 — Verify a registered defense
 
 - Inspect customer identity capabilities and compare the selected target with an independent copy using the session-bound defense. Record direct permission tests and matched banking cases before assigning a verification result.

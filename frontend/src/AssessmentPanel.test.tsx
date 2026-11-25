@@ -64,3 +64,59 @@ it('opens the existing inspector for a completed case', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Inspect this check' }))
   expect(inspect).toHaveBeenCalledWith('run-1')
 })
+
+it.each(['passed', 'inconclusive'] as const)(
+  'shows the backend verification result %s and links both runs to evidence',
+  async (status) => {
+    localStorage.setItem('sentinel-assessment-session', 'saved')
+    const baseline = { case_id: 'latest-transfer', run_id: 'baseline', outcome: 'passed', response_text: 'Original CAD 125' }
+    const candidate = { ...baseline, run_id: 'candidate', response_text: 'Defended CAD 125' }
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        assessment_id: 'saved', status: 'complete', events: [],
+        report: {
+          benign: [baseline],
+          controls: [],
+          baseline_scope: {
+            outcome: 'exposed_capability', run_id: 'scope', model_controlled_customer_tools: ['lookup'],
+          },
+          recommendation: {
+            defense_id: 'context_bound_customer_tools_v1',
+            likely_cause: 'The gateway takes identity from the model.',
+            expected_effect: 'Bind identity to the signed-in session.',
+            sources: [],
+          },
+          verification: {
+            status, candidate_benign: [candidate],
+            configuration_change: { defense_presets: { before: [], after: ['context_bound_customer_tools_v1'] } },
+            candidate_scope: {
+              outcome: 'session_bound', run_id: 'defended-scope', model_controlled_customer_tools: [],
+            },
+            comparisons: [{
+              case_id: 'latest-transfer',
+              status: status === 'passed' ? 'matched' : 'inconclusive',
+              reason: status === 'inconclusive' ? 'Source identity is unavailable.' : '',
+              unexpected_fields: [],
+            }],
+          },
+        },
+      }),
+    })))
+    const inspect = vi.fn()
+    render(<QueryClientProvider client={new QueryClient()}>
+      <AssessmentPanel sessionId="session" onInspectRun={inspect} />
+    </QueryClientProvider>)
+    expect(await screen.findByRole('heading', { name: `Verification ${status}` })).toBeTruthy()
+    expect(screen.getByText('Original CAD 125')).toBeTruthy()
+    expect(screen.getByText('Defended CAD 125')).toBeTruthy()
+    expect(screen.getByText('Defense presets before: None')).toBeTruthy()
+    if (status === 'inconclusive') {
+      expect(screen.getByText('Source identity is unavailable.')).toBeTruthy()
+      expect(screen.queryByRole('heading', { name: 'Verification passed' })).toBeNull()
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Inspect observed capability' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Inspect defended capability' }))
+    expect(inspect.mock.calls).toEqual([['scope'], ['defended-scope']])
+  },
+)

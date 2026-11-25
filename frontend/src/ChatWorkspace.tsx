@@ -31,6 +31,7 @@ const examples = [
 const eventTitles: Record<string, string> = {
   'tool.requested': 'Assistant requested a tool',
   'authorization.decided': 'Permission checked',
+  'scorer.verdict': 'Recorded check outcome',
   'repository.read_completed': 'Bank records returned',
   'context.prepared': 'Tool result prepared',
   'context.dispatched': 'Context sent to the model',
@@ -419,8 +420,7 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
               <span className="badge">OBSERVED EVENTS</span>
             </div>
             <p className="inspector-note">
-              This records what ran. Security verdicts arrive with the
-              assessment workflow.
+              Inspect a chat answer or assessment check to see the events behind it.
             </p>
             {!runId && (
               <div className="inspector-empty">

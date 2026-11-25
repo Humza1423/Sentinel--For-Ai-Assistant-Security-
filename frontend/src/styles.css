@@ -291,3 +291,42 @@ button:focus-visible, select:focus-visible, summary:focus-visible, a:focus-visib
   .tool-row { flex-wrap: wrap; padding: 7px 0; }
   .footer-note { flex-direction: column; gap: 5px; }
 }
+
+.verification-steps {
+  display: grid;
+  gap: 1px;
+  padding: 0;
+  list-style: none;
+}
+
+.verification-steps > li,
+.verification-pairs > details {
+  padding: 12px 16px;
+  background: #fff9;
+  border-bottom: 1px solid #dce5f0;
+}
+
+.verification-steps h4,
+.verification-columns h5 {
+  margin: 0 0 6px;
+}
+
+.verification-steps p {
+  margin: 6px 0;
+  line-height: 1.5;
+}
+
+.verification-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.verification-columns ul {
+  padding-left: 16px;
+}
+
+.verification-pairs summary {
+  cursor: pointer;
+}

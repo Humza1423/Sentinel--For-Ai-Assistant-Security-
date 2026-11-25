@@ -1,5 +1,18 @@
 # Sentinel implementation plan — product phases and execution order
 
+## First release
+
+Use the built-in synthetic banking assistant. Inspect its executable customer
+permissions, record the finding and likely cause, recommend a reviewed defense,
+and verify that defense on a separate candidate configuration. Publish the
+permission checks and matched banking reruns in the evidence workspace. A
+capability finding describes available authority. An observed disclosure
+requires its own run evidence.
+
+For this release, the evidence workspace and registered-defense verification
+come before generated code. Coding Agent tickets remain a later milestone and
+require a secure isolated runner before any generated code executes.
+
 ## Product goal and complete flow
 
 Build a banking-agent security workbench that discovers an observed failure,

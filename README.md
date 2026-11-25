@@ -56,6 +56,20 @@ outcomes require different conclusions. See the
 [attacker walkthrough](docs/T11_EVIDENCE.md) and
 [observed scoring](docs/T10_EVIDENCE.md).
 
+## Verify a registered defense
+
+Open the banking workspace and choose **Assess assistant → Run banking checks**.
+Sentinel inspects which customer identity the assistant's tools use. If the
+model can choose that identity, Sentinel explains the setting and applies the
+registered session-binding defense to a separate copy. The assessment repeats
+the capability check, exercises the candidate's permission boundaries and
+compares five banking questions on matched inputs. Expand a check to inspect
+its recorded events, or download the full JSON report.
+
+This path uses offline model fixtures and real local banking tools. The
+capability finding records what the target is configured to allow. An observed
+disclosure requires separate run evidence.
+
 ## What works today
 
 | Capability | Current implementation |
@@ -67,11 +81,11 @@ outcomes require different conclusions. See the
 | Control and usefulness checks | Four direct probes and five ordinary assistant cases, evaluated separately against synthetic banking facts. |
 | Scripted security demo | Fixed phishing and cross-customer scenarios with registered defenses and replay, explicitly labeled as fixtures. |
 
-**The attack and evidence foundations are implemented. Automated investigation,
-generated code repair, and clean paired verification of that repair are planned.**
-The bounded attacker and evaluation services are backend capabilities; the full
-assessment-to-repair interface is still on the roadmap. Fixture tests establish
-the wiring and defined invariants, not a general model-security success rate.
+The workspace verifies the registered defense on a separate configuration and
+links its conclusion to the recorded checks. The Investigator and Defense Agent
+APIs can inspect previously recorded findings and propose changes. The
+integrated assessment uses a deterministic capability finding and reviewed
+control. Generated code repair and isolated execution are later milestones.
 
 ## Architecture and technology
 
