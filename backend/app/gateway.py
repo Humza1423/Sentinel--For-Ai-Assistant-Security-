@@ -4,6 +4,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 
 from .evidence import child_scope, emit
+from .execution_control import check_execution
 from .target_contracts import RequestContext
 
 
@@ -12,6 +13,7 @@ def authorize_bank_read(
     context: RequestContext, *, profile: str, requested_customer_id: str | None = None
 ) -> Iterator[str]:
     """Return the effective scope for one reviewed synthetic profile."""
+    check_execution.get()()
     if profile == "session_bound_v1":
         if requested_customer_id is not None:
             emit(

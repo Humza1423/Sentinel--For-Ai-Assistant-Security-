@@ -15,6 +15,7 @@ _TARGET_FILES = tuple(
         "defenses",
         "evidence",
         "execution_receipt",
+        "execution_control",
         "fixture_model",
         "gateway",
         "live_model",

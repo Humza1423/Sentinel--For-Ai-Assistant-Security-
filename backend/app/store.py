@@ -245,3 +245,24 @@ def list_transactions() -> list[dict]:
             }
             for row in rows
         ]
+
+
+class AssessmentRow(Base):
+    __tablename__ = "assessments"
+    assessment_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    session_id: Mapped[str] = mapped_column(ForeignKey("chat_sessions.session_id"), nullable=False)
+    request_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False)
+    cancel_requested: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    config_json: Mapped[str] = mapped_column(Text, nullable=False)
+    report_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    __table_args__ = (UniqueConstraint("session_id", "request_id"),)
+
+
+class AssessmentEventRow(Base):
+    __tablename__ = "assessment_events"
+    assessment_id: Mapped[str] = mapped_column(
+        ForeignKey("assessments.assessment_id"), primary_key=True
+    )
+    sequence: Mapped[int] = mapped_column(Integer, primary_key=True)
+    payload_json: Mapped[str] = mapped_column(Text, nullable=False)
