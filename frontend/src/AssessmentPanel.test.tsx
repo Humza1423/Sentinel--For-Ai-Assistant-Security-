@@ -89,6 +89,7 @@ it.each(['passed', 'inconclusive'] as const)(
           },
           verification: {
             status, candidate_benign: [candidate],
+            configuration_change: { defense_presets: { before: [], after: ['context_bound_customer_tools_v1'] } },
             candidate_scope: {
               outcome: 'session_bound', run_id: 'defended-scope', model_controlled_customer_tools: [],
             },
@@ -109,6 +110,7 @@ it.each(['passed', 'inconclusive'] as const)(
     expect(await screen.findByRole('heading', { name: `Verification ${status}` })).toBeTruthy()
     expect(screen.getByText('Original CAD 125')).toBeTruthy()
     expect(screen.getByText('Defended CAD 125')).toBeTruthy()
+    expect(screen.getByText('Defense presets before: None')).toBeTruthy()
     if (status === 'inconclusive') {
       expect(screen.getByText('Source identity is unavailable.')).toBeTruthy()
       expect(screen.queryByRole('heading', { name: 'Verification passed' })).toBeNull()

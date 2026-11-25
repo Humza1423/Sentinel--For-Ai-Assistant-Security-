@@ -15,13 +15,14 @@ type Result = {
 }
 type ScopeObservation = {
   outcome: 'exposed_capability' | 'session_bound' | 'inconclusive'
-  model_controlled_customer_tools: string[]
+  source_receipt?: { revision: string | null }
   run_id: string
 }
 
 type Verification = {
   status: 'passed' | 'failed' | 'inconclusive'
   candidate_scope: ScopeObservation
+  configuration_change: { defense_presets: { before: string[]; after: string[] } }
   candidate_benign: Result[]
   comparisons: {
     case_id: string
@@ -100,6 +101,7 @@ function VerificationSummary({ report, onInspectRun }: {
         <p>{recommendation.likely_cause}</p>
         {!!recommendation.sources.length && <details>
           <summary>Source references</summary>
+          {observed.source_receipt?.revision && <p>Revision <code>{observed.source_receipt.revision}</code></p>}
           <ul>{recommendation.sources.map(source => <li key={source.path}>
             <code>{source.path}:{source.start}–{source.end}</code>
           </li>)}</ul>
@@ -119,6 +121,11 @@ function VerificationSummary({ report, onInspectRun }: {
         {verification.candidate_benign.filter(check => check.outcome === 'passed').length} of {verification.candidate_benign.length} banking checks passed ·{' '}
         {verification.comparisons.filter(pair => pair.status === 'matched').length} of {verification.comparisons.length} inputs matched
       </p>
+      <details>
+        <summary>Configuration change</summary>
+        <p>Defense presets before: {verification.configuration_change.defense_presets.before.join(', ') || 'None'}</p>
+        <p>Defense presets after: {verification.configuration_change.defense_presets.after.join(', ') || 'None'}</p>
+      </details>
       {onInspectRun && <button className="export-button" onClick={() => onInspectRun(verification.candidate_scope.run_id)}>
         Inspect defended capability
       </button>}

@@ -81,11 +81,11 @@ disclosure requires separate run evidence.
 | Control and usefulness checks | Four direct probes and five ordinary assistant cases, evaluated separately against synthetic banking facts. |
 | Scripted security demo | Fixed phishing and cross-customer scenarios with registered defenses and replay, explicitly labeled as fixtures. |
 
-**The attack and evidence foundations are implemented. Automated investigation,
-generated code repair, and clean paired verification of that repair are planned.**
-The bounded attacker and evaluation services are backend capabilities; the full
-assessment-to-repair interface is still on the roadmap. Fixture tests establish
-the wiring and defined invariants, not a general model-security success rate.
+The workspace verifies the registered defense on a separate configuration and
+links its conclusion to the recorded checks. The Investigator and Defense Agent
+APIs can inspect previously recorded findings and propose changes. The
+integrated assessment uses a deterministic capability finding and reviewed
+control. Generated code repair and isolated execution are later milestones.
 
 ## Architecture and technology
 
