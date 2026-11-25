@@ -13,12 +13,43 @@ type Result = {
   observed?: string
   event_ids?: string[]
 }
+type ScopeObservation = {
+  outcome: 'exposed_capability' | 'session_bound' | 'inconclusive'
+  model_controlled_customer_tools: string[]
+  run_id: string
+}
+
+type Verification = {
+  status: 'passed' | 'failed' | 'inconclusive'
+  candidate_scope: ScopeObservation
+  candidate_benign: Result[]
+  comparisons: {
+    case_id: string
+    status: 'matched' | 'mismatched' | 'inconclusive'
+    unexpected_fields: string[]
+    reason: string
+  }[]
+}
+
+type Report = {
+  benign: Result[]
+  controls: Result[]
+  baseline_scope?: ScopeObservation
+  recommendation?: {
+    defense_id: string
+    expected_effect: string
+    likely_cause: string
+    sources: { path: string; start: number; end: number }[]
+  } | null
+  verification?: Verification
+}
+
 type Assessment = {
   assessment_id: string
   status: string
   mode: string
   events: { sequence: number; type: string }[]
-  report: { benign: Result[]; controls: Result[] } | null
+  report: Report | null
 }
 
 function CheckResult({ result, onInspectRun }: {
@@ -38,6 +69,89 @@ function CheckResult({ result, onInspectRun }: {
       {!!result.event_ids?.length && <p>{result.event_ids.length} recorded evidence events</p>}
     </details>
   </li>
+}
+
+function VerificationSummary({ report, onInspectRun }: {
+  report: Report
+  onInspectRun?: (runId: string) => void
+}) {
+  const { baseline_scope: observed, recommendation, verification } = report
+  if (!observed) return null
+
+  const conclusion = {
+    exposed_capability: 'The selected assistant lets the model supply a customer ID.',
+    session_bound: 'The selected assistant binds customer identity to the session.',
+    inconclusive: 'The recorded tool settings were insufficient to establish customer scope.',
+  }[observed.outcome]
+
+  return <ol className="verification-steps" aria-label="Security verification">
+    <li>
+      <h4>Observed capability</h4>
+      <p>{conclusion}</p>
+      {observed.outcome === 'exposed_capability' &&
+        <p>This check establishes tool authority. It does not test whether the model disclosed a record.</p>}
+      {onInspectRun && <button className="export-button" onClick={() => onInspectRun(observed.run_id)}>
+        Inspect observed capability
+      </button>}
+    </li>
+    {recommendation && <>
+      <li>
+        <h4>Likely cause</h4>
+        <p>{recommendation.likely_cause}</p>
+        {!!recommendation.sources.length && <details>
+          <summary>Source references</summary>
+          <ul>{recommendation.sources.map(source => <li key={source.path}>
+            <code>{source.path}:{source.start}–{source.end}</code>
+          </li>)}</ul>
+        </details>}
+      </li>
+      <li>
+        <h4>Recommended defense</h4>
+        <p>{recommendation.expected_effect}</p>
+        <code>{recommendation.defense_id}</code>
+      </li>
+    </>}
+    {verification && <li>
+      <h4>Verification {verification.status}</h4>
+      <p>The registered defense was applied to a separate copy. The selected chat keeps its original settings.</p>
+      <p>
+        {report.controls.filter(check => check.outcome === 'passed').length} of {report.controls.length} permission checks passed ·{' '}
+        {verification.candidate_benign.filter(check => check.outcome === 'passed').length} of {verification.candidate_benign.length} banking checks passed ·{' '}
+        {verification.comparisons.filter(pair => pair.status === 'matched').length} of {verification.comparisons.length} inputs matched
+      </p>
+      {onInspectRun && <button className="export-button" onClick={() => onInspectRun(verification.candidate_scope.run_id)}>
+        Inspect defended capability
+      </button>}
+    </li>}
+  </ol>
+}
+
+function BankingComparison({ report, onInspectRun }: {
+  report: Report & { verification: Verification }
+  onInspectRun?: (runId: string) => void
+}) {
+  return <>
+    <h4>Banking questions before and after</h4>
+    <div className="verification-pairs">
+      {report.verification.comparisons.map(pair => {
+        const baseline = report.benign.find(result => result.case_id === pair.case_id)
+        const candidate = report.verification.candidate_benign.find(result => result.case_id === pair.case_id)
+        return <details key={pair.case_id}>
+          <summary>{pair.case_id.replaceAll('-', ' ')} · Inputs {pair.status}</summary>
+          {pair.reason && <p>{pair.reason}</p>}
+          {!!pair.unexpected_fields.length && <p>Input differences: {pair.unexpected_fields.join(', ')}</p>}
+          <div className="verification-columns">
+            <div><h5>Selected assistant</h5>
+              <ul>{baseline && <CheckResult result={baseline} onInspectRun={onInspectRun} />}</ul>
+            </div>
+            <div><h5>Defended copy</h5>
+              <ul>{candidate && <CheckResult result={candidate} onInspectRun={onInspectRun} />}</ul>
+            </div>
+          </div>
+        </details>
+      })}
+    </div>
+  </>
 }
 
 export default function AssessmentPanel({ sessionId, onInspectRun }: {
@@ -88,8 +202,8 @@ export default function AssessmentPanel({ sessionId, onInspectRun }: {
     start.mutate(nextRequestId)
   }
   return <section aria-label="Banking assessment">
-    <h3>Check everyday banking behavior</h3>
-    <p>Five customer questions use the selected assistant’s tools and synthetic records. Separate permission checks exercise the protected reference. Fixture model · No API cost.</p>
+    <h3>Verify customer permissions</h3>
+    <p>Inspect the selected assistant and verify a registered defense when needed. Fixture model · Synthetic records · No API cost.</p>
     {(!id || (!active && (data || state.error))) && <button className="export-button"
       disabled={start.isPending} onClick={startChecks}>
       {start.isPending ? 'Starting…' : startLabel}
@@ -100,9 +214,14 @@ export default function AssessmentPanel({ sessionId, onInspectRun }: {
     {data && <p role="status">Assessment {data.status}</p>}
     {active && <button onClick={() => cancel.mutate()} disabled={cancel.isPending}>Cancel assessment</button>}
     {data?.report && <>
-      <h4>Customer questions</h4>
-      <ul>{data.report.benign.map(result => <CheckResult key={result.case_id} result={result} onInspectRun={onInspectRun} />)}</ul>
-      <h4>Reference permission checks</h4>
+      <VerificationSummary report={data.report} onInspectRun={onInspectRun} />
+      {data.report.verification
+        ? <BankingComparison report={{ ...data.report, verification: data.report.verification }} onInspectRun={onInspectRun} />
+        : <>
+          <h4>Customer questions</h4>
+          <ul>{data.report.benign.map(result => <CheckResult key={result.case_id} result={result} onInspectRun={onInspectRun} />)}</ul>
+        </>}
+      <h4>{data.report.verification ? 'Defended copy permission checks' : 'Reference permission checks'}</h4>
       <ul>{data.report.controls.map(result => <CheckResult key={result.probe_id} result={result} onInspectRun={onInspectRun} />)}</ul>
       <button className="export-button" onClick={download}>Download report</button>
     </>}

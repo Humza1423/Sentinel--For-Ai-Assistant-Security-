@@ -56,6 +56,20 @@ outcomes require different conclusions. See the
 [attacker walkthrough](docs/T11_EVIDENCE.md) and
 [observed scoring](docs/T10_EVIDENCE.md).
 
+## Verify a registered defense
+
+Open the banking workspace and choose **Assess assistant → Run banking checks**.
+Sentinel inspects which customer identity the assistant's tools use. If the
+model can choose that identity, Sentinel explains the setting and applies the
+registered session-binding defense to a separate copy. The assessment repeats
+the capability check, exercises the candidate's permission boundaries and
+compares five banking questions on matched inputs. Expand a check to inspect
+its recorded events, or download the full JSON report.
+
+This path uses offline model fixtures and real local banking tools. The
+capability finding records what the target is configured to allow. An observed
+disclosure requires separate run evidence.
+
 ## What works today
 
 | Capability | Current implementation |

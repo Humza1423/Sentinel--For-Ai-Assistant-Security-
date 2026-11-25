@@ -24,7 +24,7 @@ Each approved ticket has its own tests, learning review, and PR to protected mai
 | T12 | Clean paired execution against a candidate revision | T11, T13, T22 | Complete; [independent paired runtime inputs](T12_EVIDENCE.md); source-patch execution follows isolation |
 | T13 | Direct control probes and actual benign-agent queries | T03, T05, T10 | Complete; controls and usefulness evaluated separately |
 | T14 | Assessment lifecycle, cancellation, persisted SSE | T12–T13 | [Saved defensive verification](T14_EVIDENCE.md); autonomous attack integration pending |
-| T15 | Investigation, diff and evidence proof workspace | T07, T14, T21–T22, T25 | Planned |
+| T15 | Registered-defense evidence and comparison workspace | T07, T12–T14 | Complete for the first release; generated patch workspace follows T25 |
 | T16 | Repeated trials, regression export, guided demo | T15, T26 | Planned |
 | T17 | Gateway-only versus session-bound comparison | T16 | Planned |
 | T18 | Action provenance and enforceable exact-host URL policy | T05, T08 | Planned |
