@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from contextlib import asynccontextmanager
+from typing import Literal
 from uuid import UUID, uuid4
 
 from fastapi import Cookie, FastAPI, HTTPException, Query
@@ -14,11 +15,13 @@ from .campaign import run_campaign
 from .chat import recover_interrupted, require_session
 from .chat_api import router as chat_router
 from .contracts import CampaignRequest
-from .evidence import EventPage, EvidenceError, UnknownRunError, read_events
+from .evidence import EventPage, EvidenceError, EvidenceRecorder, UnknownRunError, read_events
+from .investigation import Investigation, investigate_run, recorded_assessment
+from .live_model import MeteredOpenAIModel
 from .scenarios import SCENARIOS
 from .settings import load_external_env_file
 from .store import ChatTurnRow, Session, get_events, get_report, save_report
-from .target_contracts import RequestContext, TargetConfig, TargetManifest
+from .target_contracts import RequestContext, TargetConfig, TargetManifest, TargetModelConfig
 from .targets import resolve_target
 
 load_external_env_file()
@@ -81,13 +84,7 @@ def resolve_target_configuration(config: TargetConfig):
         raise HTTPException(422, str(exc)) from exc
 
 
-@app.get("/api/v2/runs/{run_id}/events", response_model=EventPage)
-def observed_run_events(
-    run_id: UUID,
-    after_sequence: int = Query(default=0, ge=0),
-    limit: int = Query(default=200, ge=1, le=1000),
-    sentinel_owner: str | None = Cookie(default=None),
-):
+def require_run_access(run_id, sentinel_owner):
     with Session() as db:
         turn = db.scalar(select(ChatTurnRow).where(ChatTurnRow.run_id == str(run_id)))
         if turn is not None:
@@ -95,12 +92,46 @@ def observed_run_events(
                 require_session(db, turn.session_id, sentinel_owner)
             except LookupError as exc:
                 raise HTTPException(404, "Run not found") from exc
+
+
+@app.get("/api/v2/runs/{run_id}/events", response_model=EventPage)
+def observed_run_events(
+    run_id: UUID,
+    after_sequence: int = Query(default=0, ge=0),
+    limit: int = Query(default=200, ge=1, le=1000),
+    sentinel_owner: str | None = Cookie(default=None),
+):
+    require_run_access(run_id, sentinel_owner)
     try:
         return read_events(run_id, after_sequence=after_sequence, limit=limit)
     except UnknownRunError as exc:
         raise HTTPException(404, str(exc)) from exc
     except EvidenceError:
         raise HTTPException(503, "Evidence is unavailable or incomplete") from None
+
+
+@app.post("/api/v2/runs/{run_id}/investigation", response_model=Investigation)
+def investigate_observed_run(
+    run_id: UUID,
+    mode: Literal["offline", "live"] = "offline",
+    sentinel_owner: str | None = Cookie(default=None),
+):
+    require_run_access(run_id, sentinel_owner)
+    if mode == "offline":
+        return investigate_run(run_id)
+    assessment_id = recorded_assessment(run_id)
+    if assessment_id is None:
+        raise HTTPException(409, "Live analysis requires a run with an existing assessment budget")
+    try:
+        model = MeteredOpenAIModel(
+            TargetModelConfig(), EvidenceRecorder(run_id), assessment_id=assessment_id
+        )
+    except ValueError:
+        raise HTTPException(503, "Investigator provider unavailable") from None
+    try:
+        return investigate_run(run_id, model=model)
+    finally:
+        model.close()
 
 
 @app.get("/api/scenarios")

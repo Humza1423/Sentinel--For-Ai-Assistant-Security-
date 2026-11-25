@@ -45,7 +45,7 @@ class CrossCustomerVerdict(BaseModel):
     marker_attribution_limited: bool = False
 
 
-def _all_events(run_id: UUID) -> tuple[tuple[RunEvent, ...], RunOrigin]:
+def read_run_trace(run_id: UUID) -> tuple[tuple[RunEvent, ...], RunOrigin]:
     events, after = [], 0
     while True:
         page = read_events(run_id, after_sequence=after, limit=1000)
@@ -115,7 +115,7 @@ def score_cross_customer_run(
 ) -> CrossCustomerVerdict:
     """Evaluate one trusted request from persisted, digest-verified evidence."""
     try:
-        events, origin = _all_events(run_id)
+        events, origin = read_run_trace(run_id)
     except EvidenceError:
         return CrossCustomerVerdict(
             run_id=run_id,
