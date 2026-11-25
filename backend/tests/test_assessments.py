@@ -157,3 +157,28 @@ def test_assessment_check_evidence_requires_its_owner():
         assert client.get(url).status_code == 404
         client.cookies.set("sentinel_owner", owner)
         assert client.get(url).status_code == 200
+
+
+def test_cancelled_partial_run_evidence_stays_owner_scoped(monkeypatch):
+    from app.fixture_model import BankingFixtureModel
+
+    sid, owner = setup()
+    aid, _ = assessments.create_assessment(sid, owner, str(uuid4()))
+    original = BankingFixtureModel.invoke
+
+    def cancel_on_model(self, *args, **kwargs):
+        response = original(self, *args, **kwargs)
+        assessments.cancel_assessment(aid, owner)
+        return response
+
+    monkeypatch.setattr(BankingFixtureModel, "invoke", cancel_on_model)
+    assessments.execute_assessment(aid)
+    state = assessments.read_assessment(aid, owner)
+    assert state["status"] == "cancelled"
+    run_id = [e for e in state["events"] if e["type"] == "run_started"][-1]["result"]["run_id"]
+    assert not any(e["type"] == "benign_case" for e in state["events"])
+    with TestClient(app) as client:
+        url = f"/api/v2/runs/{run_id}/events"
+        assert client.get(url).status_code == 404
+        client.cookies.set("sentinel_owner", owner)
+        assert client.get(url).status_code == 200

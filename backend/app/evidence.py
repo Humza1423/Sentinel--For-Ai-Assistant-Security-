@@ -19,6 +19,7 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 
+from .execution_control import on_run_started
 from .store import ObservedEventRow, ObservedRunRow, Session
 
 EventName = Literal[
@@ -250,6 +251,7 @@ class EvidenceRecorder:
                 )
         except SQLAlchemyError:
             raise EvidenceError("Could not start evidence run") from None
+        on_run_started.get()(recorder.run_id)
         return recorder
 
     def append(
