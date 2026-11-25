@@ -211,9 +211,9 @@ describe('Banking workspace', () => {
       ),
     ).toBe(true)
     fireEvent.click(screen.getByRole('button', { name: 'Assess assistant' }))
-    expect(screen.getByText('Assessment target captured')).toBeTruthy()
+    expect(screen.getByText('Selected assistant')).toBeTruthy()
     expect(
-      screen.getByText(/Assessment execution will become available/),
+      screen.getByText(/Review the selected tools/),
     ).toBeTruthy()
   })
 

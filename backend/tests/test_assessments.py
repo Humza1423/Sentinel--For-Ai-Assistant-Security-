@@ -87,3 +87,30 @@ def test_http_report_events_and_bad_owner():
         assert not client.get(url + "/events", headers={"Last-Event-ID": str(sequence)}).text
         client.cookies.set("sentinel_owner", "wrong")
         assert client.get(url).status_code == 404
+
+
+def test_completed_benign_result_survives_later_cancellation(monkeypatch):
+    from app import evaluation
+    from app.execution_control import ExecutionCancelled
+
+    sid, owner = setup()
+    aid, _ = assessments.create_assessment(sid, owner, str(uuid4()))
+    original = evaluation.run_benign_suite
+
+    def cancel_on_result(**kwargs):
+        callback = kwargs["on_result"]
+
+        def stop(result):
+            callback(result)
+            assessments.cancel_assessment(aid, owner)
+            raise ExecutionCancelled("stop after saved result")
+
+        return original(**{**kwargs, "on_result": stop})
+
+    monkeypatch.setattr(assessments, "run_benign_suite", cancel_on_result)
+    assessments.execute_assessment(aid)
+    state = assessments.read_assessment(aid, owner)
+    assert state["status"] == "cancelled"
+    completed = [e for e in state["events"] if e["type"] == "benign_case"]
+    assert len(completed) == 1
+    assert completed[0]["result"]["run_id"] and completed[0]["result"]["event_ids"]
