@@ -18,7 +18,7 @@ The larger goal is to close the repair loop: investigate the failure, propose
 a fix, patch an isolated copy on the engineer's request, and replay the attack
 alongside ordinary banking tasks before accepting the change.
 
-[Follow an attack](#follow-one-attack) · [Current capabilities](#what-works-today) ·
+[Try the guided walkthrough](docs/DEMO.md) · [Follow an attack](#follow-one-attack) · [Current capabilities](#what-works-today) ·
 [Architecture](#architecture-and-technology) · [Repair roadmap](#closing-the-repair-loop) ·
 [Run locally](#run-locally)
 
@@ -58,7 +58,7 @@ outcomes require different conclusions. See the
 
 ## Verify a registered defense
 
-Open the banking workspace and choose **Assess assistant → Run banking checks**.
+Open the banking workspace and choose **Assess assistant → Review defense checks → Run banking checks**.
 Sentinel inspects which customer identity the assistant's tools use. If the
 model can choose that identity, Sentinel explains the setting and applies the
 registered session-binding defense to a separate copy. The assessment repeats
