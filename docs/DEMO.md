@@ -18,3 +18,7 @@ npm run test:walkthrough
 ```
 
 The check opens a fresh browser session, steps through playback, asks a guided banking question, runs verification, opens the two recorded scope events and compares the downloaded JSON with the server's saved report. Each invocation creates a synthetic session and assessment in the configured local database. The browser closes at completion. The ordinary frontend unit tests run separately with `npm test`.
+
+## Release check
+
+T16A was exercised from a clean Git clone with locked dependencies, a newly migrated SQLite database and no provider credentials. The browser verified the stored event for each assistant, both latest-transfer responses, and an exact match between the download and the saved report. The clean checkout passed 252 backend tests, 18 frontend tests, backend lint and formatting, and the production frontend build.
