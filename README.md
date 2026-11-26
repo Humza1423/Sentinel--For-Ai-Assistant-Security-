@@ -166,10 +166,10 @@ In another terminal:
 ```bash
 cd frontend
 npm ci
-npm run dev
+npm run dev -- --host 127.0.0.1 --strictPort
 ```
 
-Open http://localhost:5173. Run backend tests with `cd backend && uv run --locked pytest -q`;
+Open http://127.0.0.1:5173. Run backend tests with `cd backend && uv run --locked pytest -q`;
 check the UI with `cd frontend && npm run build && npm test`. Backend tests apply
 Alembic migrations to a temporary database and block external provider HTTP requests.
 They do not read or modify your local bank database. Full quality commands are in

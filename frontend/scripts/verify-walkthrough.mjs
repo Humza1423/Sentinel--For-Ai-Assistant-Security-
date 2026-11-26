@@ -40,6 +40,20 @@ try {
     await page.getByRole('button', { name: 'Back to assessment' }).click()
   }
 
+  const pairLabel = page.getByText('latest transfer · Inputs matched', { exact: true })
+  await pairLabel.click()
+  const pair = pairLabel.locator('..')
+  for (const [side, results] of [
+    ['Selected assistant', report.benign],
+    ['Defended copy', report.verification.candidate_benign],
+  ]) {
+    const column = pair.getByRole('heading', { name: side }).locator('..')
+    await column.locator('summary').click()
+    const answer = results.find(item => item.case_id === 'latest-transfer').response_text
+    assert.ok(answer)
+    await column.getByText(answer, { exact: false }).last().waitFor()
+  }
+
   const downloading = page.waitForEvent('download')
   await page.getByRole('button', { name: 'Download report' }).click()
   const file = await (await downloading).path()
