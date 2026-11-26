@@ -330,3 +330,12 @@ button:focus-visible, select:focus-visible, summary:focus-visible, a:focus-visib
 .verification-pairs summary {
   cursor: pointer;
 }
+
+.scope-card {
+  padding: 1rem;
+  border-left: 3px solid #315c50;
+  background: #f8f7f2;
+  color: #20352e;
+}
+.scope-card h5 { font-size: 1rem; }
+.scope-card .export-button { margin-top: .5rem; }

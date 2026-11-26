@@ -77,6 +77,7 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
   const [showTarget, setShowTarget] = useState(false)
   const [playback, setPlayback] = useState(false)
   const assessButton = useRef<HTMLButtonElement>(null)
+  const inspectorHeading = useRef<HTMLHeadingElement>(null)
   const checksHeading = useRef<HTMLHeadingElement>(null)
   const returnFocus = useRef<'chat' | 'checks' | null>(null)
   function closePlayback(destination: 'chat' | 'checks') {
@@ -425,7 +426,10 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
               Profile: {data?.target.effective_tool_profile} · Digest:{' '}
               <code>{data?.target.target_digest}</code>
             </p>
-            {data && <AssessmentPanel key={data.session_id} sessionId={data.session_id} onInspectRun={setSelectedRun} />}
+            {data && <AssessmentPanel key={data.session_id} sessionId={data.session_id} onInspectRun={id => {
+              setSelectedRun(id)
+              inspectorHeading.current?.focus()
+            }} />}
             <details>
               <summary>Inspect actual tool capabilities</summary>
               <pre>{JSON.stringify(data?.target, null, 2)}</pre>
@@ -436,7 +440,7 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
           {chatPane}
           <aside className="security-inspector" aria-label="Security inspector">
             <div className="pane-heading">
-              <h2>
+              <h2 ref={inspectorHeading} tabIndex={-1}>
                 <ShieldCheck size={21} /> Security inspector
               </h2>
               <span className="badge">OBSERVED EVENTS</span>
@@ -444,6 +448,7 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
             <p className="inspector-note">
               Inspect a chat answer or assessment check to see the events behind it.
             </p>
+            {showTarget && <button className="export-button" onClick={() => checksHeading.current?.focus()}>Back to assessment</button>}
             {!runId && (
               <div className="inspector-empty">
                 <ShieldCheck size={31} />

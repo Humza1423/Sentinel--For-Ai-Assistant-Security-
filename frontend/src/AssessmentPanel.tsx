@@ -15,6 +15,8 @@ type Result = {
 }
 type ScopeObservation = {
   outcome: 'exposed_capability' | 'session_bound' | 'inconclusive'
+  model_controlled_customer_tools?: string[]
+  repository_scope_enforced?: boolean
   source_receipt?: { revision: string | null }
   run_id: string
 }
@@ -72,28 +74,43 @@ function CheckResult({ result, onInspectRun }: {
   </li>
 }
 
+function ScopeCard({ title, scope, onInspectRun, buttonLabel }: {
+  title: string
+  scope?: ScopeObservation
+  onInspectRun?: (runId: string) => void
+  buttonLabel: string
+}) {
+  const descriptions = {
+    exposed_capability: 'The model can choose a customer ID.',
+    session_bound: 'The signed-in session supplies the customer ID.',
+    inconclusive: 'Customer identity could not be established.',
+  }
+  return <div className="scope-card">
+    <h5>{title}</h5>
+    <p>{scope ? descriptions[scope.outcome] : 'No capability observation was recorded.'}</p>
+    {!!scope?.model_controlled_customer_tools?.length && <p>Tools accepting an ID: <code>{scope.model_controlled_customer_tools.join(', ')}</code></p>}
+    {typeof scope?.repository_scope_enforced === 'boolean' &&
+      <p>Repository ownership check: {scope.repository_scope_enforced ? 'enforced' : 'absent'}</p>}
+    {scope?.run_id && onInspectRun && <button className="export-button"
+      onClick={() => onInspectRun(scope.run_id)}>{buttonLabel}</button>}
+  </div>
+}
+
 function VerificationSummary({ report, onInspectRun }: {
   report: Report
   onInspectRun?: (runId: string) => void
 }) {
   const { baseline_scope: observed, recommendation, verification } = report
-  if (!observed) return null
-
-  const conclusion = {
-    exposed_capability: 'The selected assistant lets the model supply a customer ID.',
-    session_bound: 'The selected assistant binds customer identity to the session.',
-    inconclusive: 'The recorded tool settings were insufficient to establish customer scope.',
-  }[observed.outcome]
-
+  if (!observed && !verification) return <p>This saved assessment has no recorded customer-permission comparison.</p>
   return <ol className="verification-steps" aria-label="Security verification">
     <li>
-      <h4>Observed capability</h4>
-      <p>{conclusion}</p>
-      {observed.outcome === 'exposed_capability' &&
-        <p>This check establishes tool authority. It does not test whether the model disclosed a record.</p>}
-      {onInspectRun && <button className="export-button" onClick={() => onInspectRun(observed.run_id)}>
-        Inspect observed capability
-      </button>}
+      <h4>Who chooses the customer?</h4>
+      <div className="verification-columns">
+        <ScopeCard title="Selected assistant" scope={observed} onInspectRun={onInspectRun} buttonLabel="Inspect observed capability" />
+        {verification && <ScopeCard title="Defended copy" scope={verification.candidate_scope} onInspectRun={onInspectRun} buttonLabel="Inspect defended capability" />}
+      </div>
+      {observed?.outcome === 'exposed_capability' &&
+        <p>A customer selector is exposed. Establishing a disclosure requires evidence of an actual read or response.</p>}
     </li>
     {recommendation && <>
       <li>
@@ -101,7 +118,7 @@ function VerificationSummary({ report, onInspectRun }: {
         <p>{recommendation.likely_cause}</p>
         {!!recommendation.sources.length && <details>
           <summary>Source references</summary>
-          {observed.source_receipt?.revision && <p>Revision <code>{observed.source_receipt.revision}</code></p>}
+          {observed?.source_receipt?.revision && <p>Revision <code>{observed.source_receipt.revision}</code></p>}
           <ul>{recommendation.sources.map(source => <li key={source.path}>
             <code>{source.path}:{source.start}–{source.end}</code>
           </li>)}</ul>
@@ -126,9 +143,6 @@ function VerificationSummary({ report, onInspectRun }: {
         <p>Defense presets before: {verification.configuration_change.defense_presets.before.join(', ') || 'None'}</p>
         <p>Defense presets after: {verification.configuration_change.defense_presets.after.join(', ') || 'None'}</p>
       </details>
-      {onInspectRun && <button className="export-button" onClick={() => onInspectRun(verification.candidate_scope.run_id)}>
-        Inspect defended capability
-      </button>}
     </li>}
   </ol>
 }
@@ -149,10 +163,10 @@ function BankingComparison({ report, onInspectRun }: {
           {!!pair.unexpected_fields.length && <p>Input differences: {pair.unexpected_fields.join(', ')}</p>}
           <div className="verification-columns">
             <div><h5>Selected assistant</h5>
-              <ul>{baseline && <CheckResult result={baseline} onInspectRun={onInspectRun} />}</ul>
+              {baseline ? <ul><CheckResult result={baseline} onInspectRun={onInspectRun} /></ul> : <p>Selected run missing.</p>}
             </div>
             <div><h5>Defended copy</h5>
-              <ul>{candidate && <CheckResult result={candidate} onInspectRun={onInspectRun} />}</ul>
+              {candidate ? <ul><CheckResult result={candidate} onInspectRun={onInspectRun} /></ul> : <p>Defended run missing.</p>}
             </div>
           </div>
         </details>
