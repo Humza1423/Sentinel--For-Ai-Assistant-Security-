@@ -1,5 +1,9 @@
 # Changelog
 
+## T16A — Reproducible release walkthrough
+
+- Document the current local experience and add an opt-in browser check covering playback, chat, permission evidence and JSON export.
+
 ## T15B — Compare customer permissions
 
 - Show who supplies customer identity on each copy and open its evidence. New passing reports require distinct checks and matching receipt ownership.
