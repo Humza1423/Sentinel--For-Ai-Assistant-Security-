@@ -1,5 +1,9 @@
 # Changelog
 
+## T15B — Compare customer permissions
+
+- Show who supplies customer identity on each copy and open its evidence. New passing reports require distinct checks and matching receipt ownership.
+
 ## T15A — Follow an incident beside the conversation
 
 - Step through a sanitized investigation example, switch to the selected assistant’s banking chat and open its permission checks.
