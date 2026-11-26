@@ -1,5 +1,9 @@
 # Changelog
 
+## T16B — Clearer privacy walkthrough
+
+- Give the saved example and fresh check separate entry points. Show plain-language results up front and let users open the activity log on demand.
+
 ## T16A — Reproducible release walkthrough
 
 - Document the current local experience and add an opt-in browser check covering playback, chat, permission evidence and JSON export.

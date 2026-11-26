@@ -58,7 +58,7 @@ outcomes require different conclusions. See the
 
 ## Verify a registered defense
 
-Open the banking workspace and choose **Assess assistant → Review defense checks → Run banking checks**.
+Open the banking workspace and choose **Open privacy check → Run privacy checks**.
 Sentinel inspects which customer identity the assistant's tools use. If the
 model can choose that identity, Sentinel explains the setting and applies the
 registered session-binding defense to a separate copy. The assessment repeats
