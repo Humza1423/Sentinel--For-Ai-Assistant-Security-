@@ -226,3 +226,37 @@ def test_incomplete_comparison_never_verifies_a_defense(monkeypatch):
     assessments.execute_assessment(aid)
     report = assessments.read_assessment(aid, owner)["report"]
     assert report["verification"]["status"] == "inconclusive"
+
+
+def test_verification_requires_distinct_checks_and_their_own_receipts():
+    from app.evaluation import BenignCaseResult, ControlProbeResult
+    from app.registered_verification import verification_outcome
+
+    sid, owner = setup()
+    aid, _ = assessments.create_assessment(sid, owner, str(uuid4()))
+    assessments.execute_assessment(aid)
+    report = assessments.read_assessment(aid, owner)["report"]
+    result = report["verification"]
+    probes = [ControlProbeResult.model_validate(row) for row in report["controls"]]
+    before = [BenignCaseResult.model_validate(row) for row in report["benign"]]
+    after = [BenignCaseResult.model_validate(row) for row in result["candidate_benign"]]
+    pairs = result["comparisons"]
+
+    def verdict(controls=probes, baseline=before, comparisons=pairs):
+        return verification_outcome(
+            result["candidate_scope"], controls, baseline, after, comparisons
+        )
+
+    assert verdict() == "passed"
+    assert verdict(controls=[probes[0], *probes[:-1]]) == "inconclusive"
+    assert verdict(comparisons=[pairs[0], *pairs[:-1]]) == "inconclusive"
+    assert (
+        verdict(baseline=[before[0].model_copy(update={"outcome": "error"}), *before[1:]])
+        == "inconclusive"
+    )
+    for change in (
+        {"candidate_run_id": pairs[1]["candidate_run_id"]},
+        {"evidence_ids": []},
+        {"evidence_ids": pairs[1]["evidence_ids"]},
+    ):
+        assert verdict(comparisons=[{**pairs[0], **change}, *pairs[1:]]) == "inconclusive"
