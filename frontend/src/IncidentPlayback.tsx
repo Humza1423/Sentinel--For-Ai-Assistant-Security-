@@ -6,16 +6,17 @@ import './incident.css'
 
 // Sanitized presentation of the linked investigation test. Times are playback pacing.
 const steps = [
-  { title: 'Transfer question', icon: FileText, detail: 'The customer asks about their own transfer. The private note in the example request is omitted.' },
+  { title: 'Transfer question', icon: FileText, detail: 'The customer asks about their own transfer. The bank should only return records tied to that customer.' },
   { title: 'Lookup allowed', icon: ShieldCheck, detail: 'The lookup accepts the assistant’s customer ID and reads a different customer’s record. This crosses the account boundary.' },
-  { title: 'Record reached model', icon: ChatCircle, detail: 'The retrieved record is sent to the model. The privacy boundary is crossed again when the data enters its context.' },
+  { title: 'Record reached model', icon: ChatCircle, detail: 'The model receives the other customer’s record and can use it when writing its reply.' },
   { title: 'Reply delivered', icon: Check, detail: 'The reply sounds ordinary. The internal read still matters, even when the customer sees no private details.' },
 ]
 const last = steps.length - 1
 
-export default function IncidentPlayback({ chatPane, metered, onReturn, onVerify }: {
+export default function IncidentPlayback({ chatPane, metered, canVerify, onReturn, onVerify }: {
   chatPane: ReactNode
   metered: boolean
+  canVerify: boolean
   onReturn: () => void
   onVerify: () => void
 }) {
@@ -44,8 +45,8 @@ export default function IncidentPlayback({ chatPane, metered, onReturn, onVerify
       <button onClick={onReturn}><ArrowLeft size={17} /> Back to chat</button>
     </header>
     <section className="incident-title">
-      <h1 ref={title} tabIndex={-1}>Customer access assessment</h1>
-      <p>Fixture playback <span>·</span> Synthetic records</p>
+      <h1 ref={title} tabIndex={-1}>How the assistant read the wrong account</h1>
+      <p>Saved example. Play or select a step to follow what happened.</p>
     </section>
     <div className="incident-grid">
       <section className="incident-sheet" aria-label="Incident playback">
@@ -92,8 +93,10 @@ export default function IncidentPlayback({ chatPane, metered, onReturn, onVerify
     </div>
     <footer className="incident-bottom">
       <div><strong>Proposed defense</strong><p>Use the signed-in customer for every lookup.</p></div>
-      <button onClick={onVerify}>Review defense checks <span aria-hidden="true">→</span></button>
+      {canVerify
+        ? <button onClick={onVerify}>Check this assistant <span aria-hidden="true">→</span></button>
+        : <p>Return to banking chat to connect before running checks.</p>}
     </footer>
-    <p className="incident-footnote">Based on the <a href="https://github.com/Humza1423/sentinel-agent-security-workbench/blob/69053d0/backend/tests/test_investigation.py#L16-L55">cross-customer investigation fixture</a>. Private details are omitted. Run checks for fresh evidence.</p>
+    <p className="incident-footnote">Based on the <a href="https://github.com/Humza1423/sentinel-agent-security-workbench/blob/69053d0/backend/tests/test_investigation.py#L16-L55">cross-customer investigation fixture</a>. The example uses synthetic records. The privacy check runs a new assessment.</p>
   </main>
 }

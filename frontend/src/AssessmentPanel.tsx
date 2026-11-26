@@ -47,6 +47,15 @@ type Report = {
   verification?: Verification
 }
 
+const assessmentStatus: Record<string, string> = {
+  queued: 'Waiting to start…',
+  running: 'Checking account access and banking answers…',
+  complete: 'Checks finished.',
+  cancelled: 'Checks cancelled.',
+  failed: 'The checks could not finish. Try running them again.',
+  interrupted: 'The service restarted before the checks finished.',
+}
+
 type Assessment = {
   assessment_id: string
   status: string
@@ -81,8 +90,8 @@ function ScopeCard({ title, scope, onInspectRun, buttonLabel }: {
   buttonLabel: string
 }) {
   const descriptions = {
-    exposed_capability: 'The model can choose a customer ID.',
-    session_bound: 'The signed-in session supplies the customer ID.',
+    exposed_capability: 'The assistant can choose which account to look up.',
+    session_bound: 'The lookup uses the signed-in customer’s account.',
     inconclusive: 'Customer identity could not be established.',
   }
   return <div className="scope-card">
@@ -102,49 +111,51 @@ function VerificationSummary({ report, onInspectRun }: {
 }) {
   const { baseline_scope: observed, recommendation, verification } = report
   if (!observed && !verification) return <p>This saved assessment has no recorded customer-permission comparison.</p>
-  return <ol className="verification-steps" aria-label="Security verification">
-    <li>
-      <h4>Who chooses the customer?</h4>
-      <div className="verification-columns">
-        <ScopeCard title="Selected assistant" scope={observed} onInspectRun={onInspectRun} buttonLabel="Inspect observed capability" />
-        {verification && <ScopeCard title="Defended copy" scope={verification.candidate_scope} onInspectRun={onInspectRun} buttonLabel="Inspect defended capability" />}
-      </div>
-      {observed?.outcome === 'exposed_capability' &&
-        <p>Read events show what the assistant retrieved. Output events show what reached the customer. This check measures who may select that customer.</p>}
-    </li>
-    {recommendation && <>
+  return <>
+    {verification && <div className="verification-result" data-status={verification.status}>
+      <h4>{{
+        passed: 'The protected copy passed',
+        failed: 'The protected copy failed a check',
+        inconclusive: 'The checks could not confirm protection',
+      }[verification.status]}</h4>
+      <p>Sentinel tested a separate copy. Your chat still uses the original settings.</p>
+      <ul>
+        <li>{report.controls.filter(check => check.outcome === 'passed').length} of {report.controls.length} account access checks passed</li>
+        <li>{verification.candidate_benign.filter(check => check.outcome === 'passed').length} of {verification.candidate_benign.length} everyday banking checks passed</li>
+        <li>{verification.comparisons.filter(pair => pair.status === 'matched').length} of {verification.comparisons.length} comparisons used matching inputs</li>
+      </ul>
+    </div>}
+    <ol className="verification-steps" aria-label="Security verification">
       <li>
-        <h4>Likely cause</h4>
-        <p>{recommendation.likely_cause}</p>
-        {!!recommendation.sources.length && <details>
-          <summary>Source references</summary>
+        <h4>Which account can each copy look up?</h4>
+        <div className="verification-columns">
+          <ScopeCard title={verification ? "Before protection" : "Selected assistant"} scope={observed} onInspectRun={onInspectRun} buttonLabel="See evidence before protection" />
+          {verification && <ScopeCard title="After protection" scope={verification.candidate_scope} onInspectRun={onInspectRun} buttonLabel="See evidence after protection" />}
+        </div>
+        {observed?.outcome === 'exposed_capability' &&
+          <p>The check found that the tool lets the assistant choose an account. That permission creates a risk of reading another customer’s records.</p>}
+      </li>
+      {recommendation && <li>
+        <h4>What changed?</h4>
+        <p>Sentinel applied a built-in rule that makes the banking tools use the signed-in account.</p>
+        <details>
+          <summary>Technical reason and rule details</summary>
+          <p>{recommendation.likely_cause}</p>
+          <p>{recommendation.expected_effect}</p>
+          <code>{recommendation.defense_id}</code>
           {observed?.source_receipt?.revision && <p>Revision <code>{observed.source_receipt.revision}</code></p>}
-          <ul>{recommendation.sources.map(source => <li key={source.path}>
+          {!!recommendation.sources.length && <ul>{recommendation.sources.map(source => <li key={source.path}>
             <code>{source.path}:{source.start}–{source.end}</code>
-          </li>)}</ul>
-        </details>}
-      </li>
-      <li>
-        <h4>Recommended defense</h4>
-        <p>{recommendation.expected_effect}</p>
-        <code>{recommendation.defense_id}</code>
-      </li>
-    </>}
-    {verification && <li>
-      <h4>Verification {verification.status}</h4>
-      <p>The registered defense was applied to a separate copy. The selected chat keeps its original settings.</p>
-      <p>
-        {report.controls.filter(check => check.outcome === 'passed').length} of {report.controls.length} permission checks passed ·{' '}
-        {verification.candidate_benign.filter(check => check.outcome === 'passed').length} of {verification.candidate_benign.length} banking checks passed ·{' '}
-        {verification.comparisons.filter(pair => pair.status === 'matched').length} of {verification.comparisons.length} inputs matched
-      </p>
-      <details>
-        <summary>Configuration change</summary>
-        <p>Defense presets before: {verification.configuration_change.defense_presets.before.join(', ') || 'None'}</p>
-        <p>Defense presets after: {verification.configuration_change.defense_presets.after.join(', ') || 'None'}</p>
-      </details>
-    </li>}
-  </ol>
+          </li>)}</ul>}
+        </details>
+      </li>}
+    </ol>
+    {verification && <details>
+      <summary>Configuration change</summary>
+      <p>Defense presets before: {verification.configuration_change.defense_presets.before.join(', ') || 'None'}</p>
+      <p>Defense presets after: {verification.configuration_change.defense_presets.after.join(', ') || 'None'}</p>
+    </details>}
+  </>
 }
 
 function BankingComparison({ report, onInspectRun }: {
@@ -218,7 +229,7 @@ export default function AssessmentPanel({ sessionId, onInspectRun }: {
     link.click()
     URL.revokeObjectURL(url)
   }
-  const startLabel = start.isError ? 'Retry starting checks' : id ? 'Run new checks' : 'Run banking checks'
+  const startLabel = start.isError ? 'Retry starting checks' : id ? 'Run checks again' : 'Run privacy checks'
   const startChecks = () => {
     // A missing response may follow a successful server start. Retry its same ID.
     const nextRequestId = start.isError && start.variables
@@ -226,17 +237,20 @@ export default function AssessmentPanel({ sessionId, onInspectRun }: {
       : id ? crypto.randomUUID() : requestId
     start.mutate(nextRequestId)
   }
-  return <section aria-label="Banking assessment">
-    <h3>Verify customer permissions</h3>
-    <p>Inspect the selected assistant and verify a registered defense when needed. Fixture model · Synthetic records · No API cost.</p>
-    {(!id || (!active && (data || state.error))) && <button className="export-button"
+  const startButton = ((!id || (!active && (data || state.error))) && <button className="export-button"
       disabled={start.isPending} onClick={startChecks}>
       {start.isPending ? 'Starting…' : startLabel}
-    </button>}
+    </button>)
+  return <section aria-label="Banking assessment">
+    <p>Check who can choose an account. If the assistant can choose, Sentinel tests a separate copy that uses the signed-in account. It also asks both copies the same banking questions.</p>
+    <p>Synthetic records · Preprogrammed model · No API cost</p>
+    {!data?.report && startButton}
     {(start.error || state.error || cancel.error) && <p role="alert">{(start.error || state.error || cancel.error)?.message}</p>}
     {state.error && <button className="export-button" disabled={state.isFetching}
       onClick={() => state.refetch()}>Retry loading assessment</button>}
-    {data && <p role="status">Assessment {data.status}</p>}
+    <div role="status" className={data?.report ? 'sr-only' : undefined}>
+      {data && assessmentStatus[data.status]}
+    </div>
     {active && <button onClick={() => cancel.mutate()} disabled={cancel.isPending}>Cancel assessment</button>}
     {data?.report && <>
       <VerificationSummary report={data.report} onInspectRun={onInspectRun} />
@@ -246,9 +260,12 @@ export default function AssessmentPanel({ sessionId, onInspectRun }: {
           <h4>Customer questions</h4>
           <ul>{data.report.benign.map(result => <CheckResult key={result.case_id} result={result} onInspectRun={onInspectRun} />)}</ul>
         </>}
-      <h4>{data.report.verification ? 'Defended copy permission checks' : 'Reference permission checks'}</h4>
-      <ul>{data.report.controls.map(result => <CheckResult key={result.probe_id} result={result} onInspectRun={onInspectRun} />)}</ul>
+      <details>
+        <summary>{data.report.verification ? 'Individual account access checks' : 'Reference permission checks'}</summary>
+        <ul>{data.report.controls.map(result => <CheckResult key={result.probe_id} result={result} onInspectRun={onInspectRun} />)}</ul>
+      </details>
       <button className="export-button" onClick={download}>Download report</button>
+      {startButton}
     </>}
     {!!data?.events.length && <details><summary>Assessment progress</summary>
       <ol>{data.events.map(event => <li key={event.sequence}>{event.type.replaceAll('_', ' ')}</li>)}</ol>

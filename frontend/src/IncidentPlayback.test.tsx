@@ -3,7 +3,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import IncidentPlayback from './IncidentPlayback'
 
 afterEach(() => { cleanup(); vi.useRealTimers() })
-const show = () => render(<IncidentPlayback metered chatPane={<p>Existing session</p>} onReturn={() => {}} onVerify={() => {}} />)
+const show = () => render(<IncidentPlayback metered canVerify chatPane={<p>Existing session</p>} onReturn={() => {}} onVerify={() => {}} />)
 
 it('keeps the branch, explanation and chat aligned when seeking backward', () => {
   show()
@@ -12,7 +12,7 @@ it('keeps the branch, explanation and chat aligned when seeking backward', () =>
   expect(screen.getByText('Finished checking your transfer.')).toBeTruthy()
   fireEvent.click(screen.getByRole('button', { name: /Record reached model/ }))
   expect(screen.queryByText('Finished checking your transfer.')).toBeNull()
-  expect(screen.getByText(/privacy boundary is crossed/)).toBeTruthy()
+  expect(screen.getByText(/model receives the other customer/)).toBeTruthy()
   expect(range.getAttribute('aria-valuetext')).toBe('Record reached model')
 })
 
@@ -33,7 +33,7 @@ it('pauses on demand, completes, and restarts from the beginning', () => {
 
 it('labels the actual live session independently from the fixture', () => {
   show()
-  expect(document.activeElement?.textContent).toBe('Customer access assessment')
+  expect(document.activeElement?.textContent).toBe('How the assistant read the wrong account')
   fireEvent.click(screen.getByRole('button', { name: 'Open banking chat' }))
   expect(screen.getByText('Live OpenAI chat · metered')).toBeTruthy()
   expect(screen.getByText(/Up to US\$0.024 per turn/)).toBeTruthy()

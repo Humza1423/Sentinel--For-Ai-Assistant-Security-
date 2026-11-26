@@ -9,35 +9,35 @@ try {
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
   await page.goto('/')
-  await page.getByRole('button', { name: 'Assess assistant' }).click()
+  await page.getByRole('button', { name: 'Watch the example' }).click()
   await page.getByRole('button', { name: /Reply delivered/ }).click()
   await page.getByText('Finished checking your transfer.', { exact: true }).waitFor()
   await page.getByRole('button', { name: 'Open banking chat' }).click()
   await page.getByRole('button', { name: 'Show my latest transfer' }).click()
   await page.getByText(/Peer transfer.*125/).first().waitFor()
   await page.getByRole('button', { name: 'Return to example' }).click()
-  await page.getByRole('button', { name: 'Review defense checks' }).click()
+  await page.getByRole('button', { name: 'Check this assistant' }).click()
 
   const started = page.waitForResponse(response =>
     new URL(response.url()).pathname === '/api/v2/assessments' &&
     response.request().method() === 'POST')
-  await page.getByRole('button', { name: 'Run banking checks' }).click()
+  await page.getByRole('button', { name: 'Run privacy checks' }).click()
   const assessment = await (await started).json()
-  await page.getByRole('heading', { name: 'Verification passed' }).waitFor()
+  await page.getByRole('heading', { name: 'The protected copy passed' }).waitFor()
 
   const saved = await page.request.get('/api/v2/assessments/' + assessment.assessment_id + '/report')
   assert.equal(saved.status(), 200)
   const report = await saved.json()
   for (const [name, scope] of [
-    ['Inspect observed capability', report.baseline_scope],
-    ['Inspect defended capability', report.verification.candidate_scope],
+    ['See evidence before protection', report.baseline_scope],
+    ['See evidence after protection', report.verification.candidate_scope],
   ]) {
     await page.getByRole('button', { name }).click()
     const inspector = page.getByRole('complementary', { name: 'Security inspector' })
     const event = inspector.locator('#event-' + scope.event_id)
     await event.getByText('Evidence details').click()
     await event.getByText(scope.event_id, { exact: true }).waitFor()
-    await page.getByRole('button', { name: 'Back to assessment' }).click()
+    await page.getByRole('button', { name: 'Back to privacy check' }).click()
   }
 
   const pairLabel = page.getByText('latest transfer · Inputs matched', { exact: true })

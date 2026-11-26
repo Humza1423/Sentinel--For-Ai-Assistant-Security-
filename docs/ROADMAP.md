@@ -28,6 +28,7 @@ Each approved ticket has its own tests, learning review, and PR to protected mai
 | T15A | Branching fixture playback beside banking chat | T15 | Implemented; [walkthrough](T15A_EVIDENCE.md) |
 | T15B | Evidence-linked comparison of a fresh permission assessment | T15A | Implemented; [proof walkthrough](T15B_EVIDENCE.md) |
 | T16A | Fresh-checkout MVP walkthrough | T15B | Complete; [release walkthrough](DEMO.md) |
+| T16B | Clarify the chat, saved example and fresh privacy checks | T16A | Complete; [guided flow](DEMO.md) |
 | T16 | Repeated trials, regression export, guided demo | T15, T26 | Planned |
 | T17 | Gateway-only versus session-bound comparison | T16 | Planned |
 | T18 | Action provenance and enforceable exact-host URL policy | T05, T08 | Planned |
