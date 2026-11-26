@@ -145,7 +145,7 @@ function LegacyDemo() {
       <main id="workbench" className="workspace">
         <section className="hero">
           <div className="hero-copy">
-            <div className="eyebrow">CONTROLLED AGENT SECURITY TEST</div>
+            <div className="eyebrow">SCRIPTED SECURITY EXAMPLE</div>
             <h1>{isPhishing ? 'Transaction memo phishing test' : 'Cross-customer access test'}</h1>
             <p>{chosen?.description ?? 'See how an attacker-controlled transaction memo can influence a banking assistant.'} We test whether the assistant follows it—and whether a registered control stops the unsafe action.</p>
           </div>
@@ -160,7 +160,7 @@ function LegacyDemo() {
               </div>
               <button className="run-button" disabled={!chosen || mutation.isPending} onClick={() => chosen && mutation.mutate(chosen.id)}>
                 {mutation.isPending ? <CircleNotch size={18} className="spinner" aria-hidden="true"/> : <Play size={17} weight="fill" aria-hidden="true"/>}
-                {mutation.isPending ? 'Running test…' : report ? 'Run test again' : 'Run the test'}
+                {mutation.isPending ? 'Running test…' : report ? 'Replay example' : 'Play example'}
               </button>
             </div>
             <p className="run-note">{report ? 'Same synthetic data and attack are used for the replay.' : 'A scripted test using synthetic data. Deterministic and free to run.'}</p>

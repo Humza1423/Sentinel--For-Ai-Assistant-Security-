@@ -341,3 +341,18 @@ button:focus-visible, select:focus-visible, summary:focus-visible, a:focus-visib
 .scope-card .export-button { margin-top: .5rem; }
 .verification-columns > * { min-width: 0; overflow-wrap: anywhere; }
 .target-preview code { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+
+.chat-workspace .chat-heading { margin-bottom: 28px; }
+.chat-workspace .chat-heading h1 { max-width: 810px; }
+.privacy-actions section { padding: 16px 0; border-bottom: 1px solid #dce5f0; }
+.privacy-actions h3 { margin: 0; font-size: 16px; }
+.privacy-actions p, .workspace-details p { color: #52627d; font-size: 13px; line-height: 1.6; }
+.chat-workspace .privacy-actions .export-button { padding-left: 0; }
+.workspace-details { margin-top: 16px; }
+.workspace-details > summary, .target-preview summary { cursor: pointer; }
+.workspace-details > summary { font-size: 13px; font-weight: 700; }
+.verification-result { margin: 18px 0; padding: 14px 16px; background: #fff; border-left: 3px solid #9f6b38; }
+.verification-result[data-status="passed"] { border-color: #315c50; }
+.verification-result h4 { margin: 0; font-size: 17px; }
+.verification-result ul { padding-left: 18px; line-height: 1.8; }

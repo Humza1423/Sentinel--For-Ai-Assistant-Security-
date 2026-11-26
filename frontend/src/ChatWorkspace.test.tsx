@@ -43,10 +43,7 @@ describe('Banking workspace', () => {
     expect(
       await screen.findByText(/The assistant configuration changed/),
     ).toBeTruthy()
-    expect(
-      (screen.getByLabelText('Banking question') as HTMLTextAreaElement)
-        .disabled,
-    ).toBe(true)
+    expect(screen.queryByLabelText('Banking question')).toBeNull()
     expect(
       (
         screen.getByRole('button', {
@@ -125,6 +122,7 @@ describe('Banking workspace', () => {
         <ChatWorkspace openDemo={() => {}} />
       </QueryClientProvider>,
     )
+    fireEvent.click(screen.getByText('Chat settings and older demos'))
     const button = await screen.findByRole('button', {
       name: /Real model · ≤/,
     })
@@ -204,21 +202,27 @@ describe('Banking workspace', () => {
     )
     fireEvent.click(screen.getByRole('button', { name: 'Show spending' }))
     expect(await screen.findByText('Actual bank answer')).toBeTruthy()
+    expect(screen.getByText('Activity log').closest('details')?.open).toBe(false)
+    fireEvent.click(screen.getByRole('button', { name: /Actual bank answer/ }))
+    expect(screen.getByText('Activity log').closest('details')?.open).toBe(true)
     expect(await screen.findByText('Bank records returned')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Open privacy check' }))
+    expect(screen.getByRole('heading', { name: 'Customer privacy check' })).toBe(document.activeElement)
+    expect(screen.getByRole('button', { name: 'Run privacy checks' })).toBeTruthy()
+    expect(fetchMock.mock.calls.some(([url]) => url.includes('/assessments'))).toBe(false)
+    fireEvent.click(screen.getByRole('button', { name: 'Close checks' }))
     expect(
       fetchMock.mock.calls.some((call) =>
         call[0].includes('/observed-run/events'),
       ),
     ).toBe(true)
-    fireEvent.click(screen.getByRole('button', { name: 'Assess assistant' }))
-    expect(screen.getByRole('heading', { name: 'Customer access assessment' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Watch the example' }))
+    expect(screen.getByRole('heading', { name: 'How the assistant read the wrong account' })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Open banking chat' }))
     expect(screen.getByText('Actual bank answer')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Review defense checks' }))
-    expect(screen.getByText('Selected assistant')).toBeTruthy()
-    expect(
-      screen.getByText(/Review the selected tools/),
-    ).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Check this assistant' }))
+    expect(screen.getByRole('heading', { name: 'Customer privacy check' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Run privacy checks' })).toBeTruthy()
   })
 
   it('shows service failures without substituting a demo answer', async () => {

@@ -76,21 +76,29 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
   const [selectedRun, setSelectedRun] = useState<string | null>(null)
   const [showTarget, setShowTarget] = useState(false)
   const [playback, setPlayback] = useState(false)
-  const assessButton = useRef<HTMLButtonElement>(null)
-  const inspectorHeading = useRef<HTMLHeadingElement>(null)
+  const exampleButton = useRef<HTMLButtonElement>(null)
+  const activitySummary = useRef<HTMLElement>(null)
+  const privacyButton = useRef<HTMLButtonElement>(null)
   const checksHeading = useRef<HTMLHeadingElement>(null)
-  const returnFocus = useRef<'chat' | 'checks' | null>(null)
-  function closePlayback(destination: 'chat' | 'checks') {
+  const activityLog = useRef<HTMLDetailsElement>(null)
+  const returnFocus = useRef<'chat' | 'checks' | 'evidence' | 'privacy' | null>(null)
+  function focusEvidence() {
+    if (activityLog.current) activityLog.current.open = true
+    activitySummary.current?.focus()
+  }
+  function closePlayback(destination: 'chat' | 'checks' | 'evidence' | 'privacy') {
     returnFocus.current = destination
     setShowTarget(destination === 'checks')
     setPlayback(false)
   }
   useEffect(() => {
     if (playback || !returnFocus.current) return
-    const control = returnFocus.current === 'checks' ? checksHeading.current : assessButton.current
-    control?.focus()
+    if (returnFocus.current === 'checks') checksHeading.current?.focus()
+    else if (returnFocus.current === 'evidence') focusEvidence()
+    else if (returnFocus.current === 'privacy') privacyButton.current?.focus()
+    else exampleButton.current?.focus()
     returnFocus.current = null
-  }, [playback])
+  }, [playback, showTarget])
   const [lastAttempt, setLastAttempt] = useState<{
     text: string
     requestId: string
@@ -209,13 +217,8 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
       <p className="fixture-notice">
         {data?.mode === 'live_execution'
           ? 'Real model · Ask naturally, including follow-ups. Synthetic CAD records: June 26–October 23, 2026. This lab target includes a deliberately unsafe lookup for later assessments.'
-          : 'Guided demo · Choose an example below. Responses are deterministic, using real banking tools and records. Select Real model to type freely.'}
+          : 'Guided chat uses sample questions and a synthetic account.'}
       </p>
-      {availability.data?.live_chat?.reason && (
-        <p className="fixture-notice">
-          Live chat unavailable: {availability.data.live_chat.reason}
-        </p>
-      )}
       {reset.error && <p role="alert">{reset.error.message}</p>}
       {data?.requires_new_conversation && (
         <p role="alert">
@@ -229,10 +232,9 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
             <span className="flow-icon">
               <ChatCircle size={25} />
             </span>
-            <h3>Start with your synthetic account.</h3>
+            <h3>Try a banking question</h3>
             <p>
-              Explore transactions or spending, then select an answer to
-              inspect how it was produced.
+              Choose a question below to see an answer from the banking assistant.
             </p>
           </div>
         )}
@@ -245,7 +247,11 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
             <button
               className={`assistant-bubble ${runId === turn.run_id ? 'selected' : ''}`}
               aria-pressed={runId === turn.run_id}
-              onClick={() => { setSelectedRun(turn.run_id); if (playback) closePlayback('chat') }}
+              onClick={() => {
+                setSelectedRun(turn.run_id)
+                if (playback) closePlayback('evidence')
+                else focusEvidence()
+              }}
             >
               <small>SENTINEL · {turn.status}</small>
               <p>
@@ -254,7 +260,7 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
                   `This turn ended as ${turn.status}. ${turn.result?.reason_code ?? 'Inspect available evidence.'}`}
               </p>
               <span>
-                Inspect this answer <ArrowRight size={13} />
+                See how it answered <ArrowRight size={13} />
               </span>
               {!!turn.result?.dropped_turns && (
                 <small>
@@ -267,8 +273,7 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
         ))}
         {send.isPending && (
           <p role="status">
-            <CircleNotch className="spinner" /> Running tools and
-            recording evidence…
+            <CircleNotch className="spinner" /> Checking your account…
           </p>
         )}
       </div>
@@ -283,7 +288,7 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
           </button>
         ))}
       </div>
-      <form
+      {data?.mode === 'live_execution' && <form
         className="chat-composer"
         onSubmit={(event) => {
           event.preventDefault()
@@ -297,16 +302,11 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
           id="chat-message"
           value={message}
           onChange={(event) => setMessage(event.target.value)}
-          placeholder={
-            data?.mode === 'live_execution'
-              ? 'Ask about your synthetic transactions…'
-              : 'Choose an example above, or select Real model to type freely.'
-          }
+          placeholder="Ask about your synthetic transactions…"
           maxLength={4000}
           disabled={
             busy ||
             !data ||
-            data.mode !== 'live_execution' ||
             data.requires_new_conversation
           }
           onKeyDown={(event) => {
@@ -321,7 +321,6 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
           disabled={
             busy ||
             !data ||
-            data.mode !== 'live_execution' ||
             data.requires_new_conversation ||
             !message.trim()
           }
@@ -329,7 +328,7 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
         >
           Send <ArrowRight size={16} />
         </button>
-      </form>
+      </form>}
       {(session.error || reset.error || send.error) && (
         <div className="inline-alert" role="alert">
           {(session.error ?? reset.error ?? send.error)?.message}
@@ -340,7 +339,7 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
       )}
     </section>
   )
-  if (playback) return <IncidentPlayback chatPane={chatPane} metered={data?.mode === 'live_execution'}
+  if (playback) return <IncidentPlayback chatPane={chatPane} metered={data?.mode === 'live_execution'} canVerify={!!data}
     onReturn={() => closePlayback('chat')} onVerify={() => closePlayback('checks')} />
   return (
     <div className="app-shell">
@@ -356,82 +355,31 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
           Synthetic bank ·{' '}
           {data?.mode === 'live_execution'
             ? 'Real model · OpenAI, metered'
-            : 'Guided demo · deterministic, $0'}
+            : 'Guided chat · Free'}
         </div>
       </header>
       <main className="workspace chat-workspace" id="chat">
         <div className="chat-heading">
           <div>
-            <span className="eyebrow">
-              UNDERSTAND THE AGENT. FOLLOW THE EVIDENCE.
-            </span>
-            <h1>
-              Your banking assistant,
-              <br />
-              <span>under the microscope.</span>
-            </h1>
-            <p>
-              Ask a banking question. See the tools, permissions and data behind
-              its answer.
-            </p>
+            <h1>Can this assistant see another customer’s account?</h1>
+            <p>Try the banking chat, see a sample privacy failure, or check how account access works.</p>
           </div>
-          <button className="export-button" onClick={openDemo}>
-            Scripted security demo <ArrowRight size={16} />
-          </button>
-        </div>
-        <div className="chat-toolbar">
-          <span className="lab-label">SYNTHETIC LAB TARGET</span>
-          <button
-            className="export-button"
-            disabled={busy || data?.mode !== 'live_execution'}
-            aria-pressed={data?.mode !== 'live_execution'}
-            onClick={() => reset.mutate('fixture_execution')}
-          >
-            Guided demo · $0
-          </button>
-          <button
-            className="export-button"
-            disabled={busy || !availability.data?.live_chat?.available}
-            onClick={() => reset.mutate('live_execution')}
-            title={
-              availability.data?.live_chat?.reason ??
-              'Start a new metered OpenAI conversation'
-            }
-          >
-            Real model · ≤ US$0.024 / turn
-          </button>
-          <span>
-            {data?.customer_id ?? 'Connecting…'} · Customer identity managed by
-            the server
-          </span>
-          <button
-            disabled={busy || !data}
-            ref={assessButton}
-            onClick={() => setPlayback(true)}
-            className="export-button"
-          >
-            Assess assistant <ShieldCheck size={17} />
-          </button>
         </div>
         {showTarget && (
           <section
             className="target-preview"
             aria-label="Selected assessment target"
           >
-            <h2 ref={checksHeading} tabIndex={-1}>Selected assistant</h2>
-            <p>
-              Review the selected tools and run saved banking checks below.
-            </p>
-            <p>
-              Profile: {data?.target.effective_tool_profile} · Digest:{' '}
-              <code>{data?.target.target_digest}</code>
-            </p>
+            <header className="pane-heading">
+              <h2 ref={checksHeading} tabIndex={-1}>Customer privacy check</h2>
+              <button className="export-button" onClick={() => closePlayback('privacy')}>Close checks</button>
+            </header>
             {data && <AssessmentPanel key={data.session_id} sessionId={data.session_id} onInspectRun={id => {
               setSelectedRun(id)
-              inspectorHeading.current?.focus()
+              focusEvidence()
             }} />}
             <details>
-              <summary>Inspect actual tool capabilities</summary>
+              <summary>Assistant settings and tools</summary>
               <pre>{JSON.stringify(data?.target, null, 2)}</pre>
             </details>
           </section>
@@ -440,78 +388,102 @@ export default function ChatWorkspace({ openDemo }: { openDemo: () => void }) {
           {chatPane}
           <aside className="security-inspector" aria-label="Security inspector">
             <div className="pane-heading">
-              <h2 ref={inspectorHeading} tabIndex={-1}>
+              <h2>
                 <ShieldCheck size={21} /> Security inspector
               </h2>
-              <span className="badge">OBSERVED EVENTS</span>
             </div>
-            <p className="inspector-note">
-              Inspect a chat answer or assessment check to see the events behind it.
-            </p>
-            {showTarget && <button className="export-button" onClick={() => checksHeading.current?.focus()}>Back to assessment</button>}
-            {!runId && (
-              <div className="inspector-empty">
-                <ShieldCheck size={31} />
-                <h3>Every answer leaves a trail.</h3>
-                <p>
-                  Send a question to inspect model calls, permission decisions
-                  and bank reads.
-                </p>
-              </div>
-            )}
-            {events.isFetching && <p role="status">Loading evidence…</p>}
-            {events.error && <p role="alert">{events.error.message}</p>}
-            <ol className="observed-events">
-              {events.data?.pages
-                .flatMap((page) => page.events)
-                .map((event) => (
-                  <li key={event.event_id} id={`event-${event.event_id}`}>
-                    <span className="event-sequence">
-                      {event.sequence.toString().padStart(2, '0')}
-                    </span>
-                    <div>
-                      <b>
-                        {eventTitles[event.name] ??
-                          event.name.replaceAll('.', ' · ')}
-                      </b>
-                      <small>
-                        {event.actor} · {event.name}
-                      </small>
-                      <details>
-                        <summary>Evidence details</summary>
-                        <code>{event.event_id}</code>
-                        {event.parent_event_id && (
-                          <a href={`#event-${event.parent_event_id}`}>
-                            Parent event
-                          </a>
-                        )}
-                        <pre>
-                          {JSON.stringify(
-                            {
-                              payload: event.payload,
-                              provenance: event.provenance,
-                            },
-                            null,
-                            2,
+            <div className="privacy-actions">
+              <section>
+                <h3>See what can go wrong</h3>
+                <p>Follow a saved example where the assistant read another customer’s record and gave an ordinary answer.</p>
+                <button ref={exampleButton} className="export-button" onClick={() => setPlayback(true)}>
+                  Watch the example <ArrowRight size={16} />
+                </button>
+              </section>
+              <section>
+                <h3>Check this assistant</h3>
+                <p>Run fresh checks with the synthetic bank and compare account access and everyday answers after protection.</p>
+                <button ref={privacyButton} disabled={busy || !data} className="export-button" onClick={() => {
+                  if (showTarget) checksHeading.current?.focus()
+                  else closePlayback('checks')
+                }}>
+                  Open privacy check <ArrowRight size={16} />
+                </button>
+              </section>
+            </div>
+            {showTarget && <button className="export-button" onClick={() => checksHeading.current?.focus()}>Back to privacy check</button>}
+            <details className="workspace-details" key={data?.session_id} ref={activityLog}>
+              <summary ref={activitySummary}>Activity log</summary>
+              {!runId && <p>Ask a banking question or inspect a check to see the actions it recorded.</p>}
+              {events.isFetching && <p role="status">Loading evidence…</p>}
+              {events.error && <p role="alert">{events.error.message}</p>}
+              <ol className="observed-events">
+                {events.data?.pages
+                  .flatMap((page) => page.events)
+                  .map((event) => (
+                    <li key={event.event_id} id={`event-${event.event_id}`}>
+                      <span className="event-sequence">
+                        {event.sequence.toString().padStart(2, '0')}
+                      </span>
+                      <div>
+                        <b>
+                          {eventTitles[event.name] ??
+                            event.name.replaceAll('.', ' · ')}
+                        </b>
+                        <small>
+                          {event.actor} · {event.name}
+                        </small>
+                        <details>
+                          <summary>Evidence details</summary>
+                          <code>{event.event_id}</code>
+                          {event.parent_event_id && (
+                            <a href={`#event-${event.parent_event_id}`}>
+                              Parent event
+                            </a>
                           )}
-                        </pre>
-                      </details>
-                    </div>
-                  </li>
-                ))}
-            </ol>
-            {events.hasNextPage && (
-              <button
-                className="export-button"
-                disabled={events.isFetchingNextPage}
-                onClick={() => events.fetchNextPage()}
-              >
-                Load more evidence
-              </button>
-            )}
+                          <pre>
+                            {JSON.stringify(
+                              {
+                                payload: event.payload,
+                                provenance: event.provenance,
+                              },
+                              null,
+                              2,
+                            )}
+                          </pre>
+                        </details>
+                      </div>
+                    </li>
+                  ))}
+              </ol>
+              {events.hasNextPage && (
+                <button
+                  className="export-button"
+                  disabled={events.isFetchingNextPage}
+                  onClick={() => events.fetchNextPage()}
+                >
+                  Load more evidence
+                </button>
+              )}
+            </details>
           </aside>
         </div>
-        <BudgetPanel />
+        <details className="workspace-details">
+          <summary>Chat settings and older demos</summary>
+          <div className="chat-toolbar">
+            <button className="export-button" disabled={busy || data?.mode !== 'live_execution'}
+              aria-pressed={data?.mode !== 'live_execution'} onClick={() => reset.mutate('fixture_execution')}>
+              Guided demo · $0
+            </button>
+            <button className="export-button" disabled={busy || !availability.data?.live_chat?.available}
+              onClick={() => reset.mutate('live_execution')}>
+              Real model · ≤ US$0.024 / turn
+            </button>
+            <button className="export-button" onClick={openDemo}>Open older scripted examples</button>
+          </div>
+          {availability.data?.live_chat?.reason && <p>Live chat unavailable. {availability.data.live_chat.reason}</p>}
+          <BudgetPanel />
+        </details>
         <footer className="footer-note">
           <span>Sentinel · Local engineering workbench</span>
           <span>Selected lab target · Synthetic data only</span>
