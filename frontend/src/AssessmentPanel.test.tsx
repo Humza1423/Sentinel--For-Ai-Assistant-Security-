@@ -16,6 +16,8 @@ it('starts saved fixture checks and displays their separate outcomes', async () 
   render(<QueryClientProvider client={new QueryClient()}><AssessmentPanel sessionId="session" /></QueryClientProvider>)
   fireEvent.click(screen.getByText('Run banking checks'))
   expect(await screen.findByText('latest transfer — passed')).toBeTruthy()
+  expect(screen.getByText(/no recorded customer-permission comparison/)).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Inspect defended capability' })).toBeNull()
   expect(screen.getByText('schema denial — passed')).toBeTruthy()
   expect(screen.getByRole('button', { name: 'Run new checks' })).toBeTruthy()
   expect(localStorage.getItem('sentinel-assessment-session')).toBe('saved')
@@ -88,7 +90,8 @@ it.each(['passed', 'inconclusive'] as const)(
             sources: [],
           },
           verification: {
-            status, candidate_benign: [candidate],
+            status, candidate_benign: status === 'passed' ? [candidate] : [candidate,
+              { ...candidate, case_id: 'grocery-spending', response_text: 'Grocery result survives' }],
             configuration_change: { defense_presets: { before: [], after: ['context_bound_customer_tools_v1'] } },
             candidate_scope: {
               outcome: 'session_bound', run_id: 'defended-scope', model_controlled_customer_tools: [],
@@ -108,10 +111,16 @@ it.each(['passed', 'inconclusive'] as const)(
       <AssessmentPanel sessionId="session" onInspectRun={inspect} />
     </QueryClientProvider>)
     expect(await screen.findByRole('heading', { name: `Verification ${status}` })).toBeTruthy()
+    expect(screen.getByText('The model can choose a customer ID.')).toBeTruthy()
+    expect(screen.getByText('The signed-in session supplies the customer ID.')).toBeTruthy()
+    expect(screen.getByText('lookup')).toBeTruthy()
     expect(screen.getByText('Original CAD 125')).toBeTruthy()
     expect(screen.getByText('Defended CAD 125')).toBeTruthy()
     expect(screen.getByText('Defense presets before: None')).toBeTruthy()
     if (status === 'inconclusive') {
+      expect(screen.getByText('grocery spending · Input comparison missing')).toBeTruthy()
+      expect(screen.getByText('Grocery result survives')).toBeTruthy()
+      expect(screen.getByText('Selected run missing.')).toBeTruthy()
       expect(screen.getByText('Source identity is unavailable.')).toBeTruthy()
       expect(screen.queryByRole('heading', { name: 'Verification passed' })).toBeNull()
     }
