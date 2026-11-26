@@ -339,3 +339,5 @@ button:focus-visible, select:focus-visible, summary:focus-visible, a:focus-visib
 }
 .scope-card h5 { font-size: 1rem; }
 .scope-card .export-button { margin-top: .5rem; }
+.verification-columns > * { min-width: 0; overflow-wrap: anywhere; }
+.target-preview code { white-space: pre-wrap; overflow-wrap: anywhere; }

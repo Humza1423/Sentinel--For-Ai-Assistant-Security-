@@ -90,7 +90,8 @@ it.each(['passed', 'inconclusive'] as const)(
             sources: [],
           },
           verification: {
-            status, candidate_benign: [candidate],
+            status, candidate_benign: status === 'passed' ? [candidate] : [candidate,
+              { ...candidate, case_id: 'grocery-spending', response_text: 'Grocery result survives' }],
             configuration_change: { defense_presets: { before: [], after: ['context_bound_customer_tools_v1'] } },
             candidate_scope: {
               outcome: 'session_bound', run_id: 'defended-scope', model_controlled_customer_tools: [],
@@ -117,6 +118,9 @@ it.each(['passed', 'inconclusive'] as const)(
     expect(screen.getByText('Defended CAD 125')).toBeTruthy()
     expect(screen.getByText('Defense presets before: None')).toBeTruthy()
     if (status === 'inconclusive') {
+      expect(screen.getByText('grocery spending · Input comparison missing')).toBeTruthy()
+      expect(screen.getByText('Grocery result survives')).toBeTruthy()
+      expect(screen.getByText('Selected run missing.')).toBeTruthy()
       expect(screen.getByText('Source identity is unavailable.')).toBeTruthy()
       expect(screen.queryByRole('heading', { name: 'Verification passed' })).toBeNull()
     }

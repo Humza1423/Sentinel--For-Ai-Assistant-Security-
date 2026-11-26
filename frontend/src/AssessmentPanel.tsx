@@ -110,7 +110,7 @@ function VerificationSummary({ report, onInspectRun }: {
         {verification && <ScopeCard title="Defended copy" scope={verification.candidate_scope} onInspectRun={onInspectRun} buttonLabel="Inspect defended capability" />}
       </div>
       {observed?.outcome === 'exposed_capability' &&
-        <p>A customer selector is exposed. Establishing a disclosure requires evidence of an actual read or response.</p>}
+        <p>Read events show what the assistant retrieved. Output events show what reached the customer. This check measures who may select that customer.</p>}
     </li>
     {recommendation && <>
       <li>
@@ -151,16 +151,20 @@ function BankingComparison({ report, onInspectRun }: {
   report: Report & { verification: Verification }
   onInspectRun?: (runId: string) => void
 }) {
+  const { comparisons, candidate_benign } = report.verification
+  const cases = new Set([...report.benign, ...candidate_benign, ...comparisons]
+    .flatMap(item => item.case_id ? [item.case_id] : []))
   return <>
     <h4>Banking questions before and after</h4>
     <div className="verification-pairs">
-      {report.verification.comparisons.map(pair => {
-        const baseline = report.benign.find(result => result.case_id === pair.case_id)
-        const candidate = report.verification.candidate_benign.find(result => result.case_id === pair.case_id)
-        return <details key={pair.case_id}>
-          <summary>{pair.case_id.replaceAll('-', ' ')} · Inputs {pair.status}</summary>
-          {pair.reason && <p>{pair.reason}</p>}
-          {!!pair.unexpected_fields.length && <p>Input differences: {pair.unexpected_fields.join(', ')}</p>}
+      {Array.from(cases, caseId => {
+        const pair = comparisons.find(item => item.case_id === caseId)
+        const baseline = report.benign.find(result => result.case_id === caseId)
+        const candidate = candidate_benign.find(result => result.case_id === caseId)
+        return <details key={caseId}>
+          <summary>{caseId.replaceAll('-', ' ')} · {pair ? 'Inputs ' + pair.status : 'Input comparison missing'}</summary>
+          {pair?.reason && <p>{pair.reason}</p>}
+          {!!pair?.unexpected_fields?.length && <p>Input differences: {pair.unexpected_fields.join(', ')}</p>}
           <div className="verification-columns">
             <div><h5>Selected assistant</h5>
               {baseline ? <ul><CheckResult result={baseline} onInspectRun={onInspectRun} /></ul> : <p>Selected run missing.</p>}
